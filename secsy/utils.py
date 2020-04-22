@@ -334,35 +334,3 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
 
 
 
-
-if __name__ == '__main__':
-
-
-    print( """ testing the field of a divergence-free current at mlat, mlt = 73., 13., with amplitude 1, at the following points: (83, 3), (58, 22), (80, 18), (70, 12), (64, 13), (73., 13.1), at r = 85""")
-
-    m = np.array([1.])
-    r = 6371.1 + 85.
-    RI = 6371.1 + 105
-    lat_secs, lon_secs = np.array([73.]), np.array([195.])
-    lat, lon = np.array([83., 58., 80., 70., 64, 73.]), np.array([ 45. , 330. , 270. , 180. , 195. , 196.5])
-
-    Ge, Gn, Gu = get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs, RI = RI)
-
-    theta = get_theta(lat, lon, lat_secs, lon_secs, return_degrees = False)
-
-    # calculate Br and Btheta (local), using Amm and Viljanen equations 9 and 10
-    Br  =  MU0 * m / (4 * np.pi * r                ) * (                      1  / np.sqrt( 1 - 2 * r * np.cos(theta) / RI + (r / RI) ** 2) - 1            )
-    Bth = -MU0 * m / (4 * np.pi * r * np.sin(theta)) * ((r / RI - np.cos(theta)) / np.sqrt( 1 - 2 * r * np.cos(theta) / RI + (r / RI) ** 2) + np.cos(theta))
-    B = np.sqrt(Br**2 + Bth**2)
-
-    print( B * 1e9)
-    print( np.sqrt(Ge.dot(m)**2 + Gn.dot(m)**2 + Gu.dot(m)**2) * 1e9)
-    print( '--')
-    print( Br * 1e9)
-    print( Gu.dot(m) * 1e9)
-    print( 'This should be 0:', Ge.dot(m)[-2] * 1e9)
-    print( '%.4f should be very small compared to this %.4f' % (Gn.dot(m)[-1] * 1e9, Ge.dot(m)[-1] * 1e9))
-    print( Bth/np.sqrt(Bth**2 + Br**2))
-
-
-
