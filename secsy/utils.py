@@ -67,7 +67,7 @@ def get_theta(lat, lon, lat_secs, lon_secs, return_degrees = False):
 
 
 def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs, 
-                          type = 'divergence_free', constant = 1./(4*np.pi), 
+                          current_type = 'divergence_free', constant = 1./(4*np.pi), 
                           RI = RE + 110 * 1e3,
                           singularity_limit = 0):
     """ Calculate matrices Ge and Gn which relate SECS amplitudes to current density 
@@ -87,7 +87,7 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
     lon_secs: array-like
         Array of SECS pole longitudes [deg]
         Flattened array must havef same size as lat_secs
-    type: string, optional
+    current_type: string, optional
         The type of SECS function. This must be either 
         'divergence_free' (default): divergence-free basis functions
         'curl_free': curl-free basis functions
@@ -106,18 +106,18 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
         Juusola (2020), and singularity_limit / RI is equal to theta0
         in these equations. Default is 0, which means that the original
         version of the SECS functions are used (with singularities). 
-        singularity_limit is ignored if type is 'potential' or 'scalar'
+        singularity_limit is ignored if current_type is 'potential' or 'scalar'
 
     Returns
     -------
-    If type is 'divergence_free' or 'curl_free':
+    If current_type is 'divergence_free' or 'curl_free':
     Ge: 2D array
         2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
         m to the eastward current densities at (lat, lon) via 'je = Ge.dot(m)'
     Gn: 2D array
         2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
         m to the northward current densities at (lat, lon) via 'jn = Gn.dot(m)'
-    If type is 'potential' or 'scalar':
+    If current_type is 'potential' or 'scalar':
     G: 2D array
         2D array with shape (lat.size, lat_secs.size), relating amplitudes m
         to scalar field magnitude at (lat, lon) via 'z = G.dot(m)'
@@ -149,35 +149,36 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
     # apply rotation matrices to make enu vectors pointing from data points to SECS
     enu_t = np.einsum('lij, lkj->lki', R, ecef_t)[:, :, :-1] # remove last component (up), which should deviate from zero only by machine precicion
     
-    if type == 'divergence_free':
+    if current_type == 'divergence_free':
         # rotate these vectors to get vectors pointing eastward with respect to SECS systems at each data point
         enu_vec = np.dstack((enu_t[:, :, 1], -enu_t[:, :, 0])) # north -> east and east -> south
-    elif type == 'curl_free':
+    elif current_type == 'curl_free':
         enu_vec = -enu_t # outward from SECS
-    elif type in ['potential', 'scalar']:
+    elif current_type in ['potential', 'scalar']:
         enu_vec = 1
     else:
         raise Exception('type must be "divergence_free", "curl_free", "potential", or "sclar"')
 
     # get the scalar part of Amm's divergence-free SECS:    
     theta  = np.arccos(np.einsum('ij,kj->ik', ecef_r_secs, ecef_r_data))
-    if type in ['divergence_free', 'curl_free']:
+    if current_type in ['divergence_free', 'curl_free']:
         coeff = constant /np.tan(theta/2)/ RI
 
         # apply modifications to handle singularities:
         theta0 = singularity_limit / RI
-        alpha = 1 / np.tan(theta0/2)**2
-        coeff[theta < theta0] = constant * alpha * np.tan(theta[theta < theta0]/2) / RI
+        if theta0 > 0:
+            alpha = 1 / np.tan(theta0/2)**2
+            coeff[theta < theta0] = constant * alpha * np.tan(theta[theta < theta0]/2) / RI
 
         # G matrices
         Ge = coeff * enu_vec[:, :, 0].T
         Gn = coeff * enu_vec[:, :, 1].T
     
         return Ge.T, Gn.T
-    else: # type is 'potential' or 'scalar'
-        if type == 'potential':
+    else: # current_type is 'potential' or 'scalar'
+        if current_type == 'potential':
             return -2*constant*np.log(np.sin(theta/2)).T
-        elif type == 'scalar':
+        elif current_type == 'scalar':
             return    constant      / np.tan(theta/2).T
         
 
@@ -217,7 +218,7 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
     lon_secs: array-like
         Array of SECS pole longitudes [deg]
         Flattened array must havef same size as lat_secs
-    type: string, optional
+    current_type: string, optional
         The type of SECS function. This must be either 
         'divergence_free' (default): divergence-free basis functions
         'curl_free': curl-free basis functions
@@ -316,8 +317,9 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
 
         # apply modifications to handle singularities:
         theta0 = singularity_limit / RI
-        alpha = 1 / np.tan(theta0/2)**2
-        Ge_[theta < theta0] = -MU0 * RI * constant * alpha * np.tan(theta[theta < theta0]/2) / r
+        if theta0 > 0:
+            alpha = 1 / np.tan(theta0/2)**2
+            Ge_[theta < theta0] = -MU0 * RI * constant * alpha * np.tan(theta[theta < theta0]/2) / r[theta < theta0]
 
         # zero below current sheet:
         Ge_[below] *= 0 
