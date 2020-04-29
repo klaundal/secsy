@@ -246,7 +246,7 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
         m to the northward magnetic field at (lat, lon) via 'Bn = Gn.dot(m)'
     Gr: 2D array
         2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
-        m to the radial magnetic field at (lat, lon) via 'Br = Gn.dot(m)'
+        m to the radial magnetic field at (lat, lon) via 'Br = Gr.dot(m)'
 
     """
     
