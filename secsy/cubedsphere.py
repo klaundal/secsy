@@ -21,7 +21,7 @@
 
 import numpy as np
 d2r = np.pi / 180
-from secsy.spherical import enu_to_ecef
+from secsy import spherical
 import cartopy.io.shapereader as shpreader
 
 class CSprojection(object):
@@ -58,7 +58,7 @@ class CSprojection(object):
                            np.sin(self.lat0 * d2r)])
 
         # the x axis is the orientation described in ECEF coords:
-        self.x = enu_to_ecef(np.array([self.orientation[0], self.orientation[1], 0]).reshape((1, 3)), np.array(self.lon0), np.array(self.lat0)).flatten()
+        self.x = spherical.enu_to_ecef(np.array([self.orientation[0], self.orientation[1], 0]).reshape((1, 3)), np.array(self.lon0), np.array(self.lat0)).flatten()
         
         # the y axis completes the system:
         self.y = np.cross(self.z, self.x)

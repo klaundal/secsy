@@ -188,7 +188,8 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
 def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
                           current_type = 'divergence_free', constant = 1./(4*np.pi), 
                           RI = RE + 110 * 1e3,
-                          singularity_limit = 0):
+                          singularity_limit = 0,
+                          induction_nullification_radius = None):
     """ Calculate matrices Ge, Gn, and Gr which relate SECS amplitudes to magnetic field
 
     Based on equations (9) and (10) of Amm and Viljanen 1999, or (2.13)-(2.14) in Vanhamaki
@@ -235,6 +236,14 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
         Juusola (2020), and singularity_limit / RI is equal to theta0
         in these equations. Default is 0, which means that the original
         version of the SECS functions are used (with singularities). 
+    induction_nullification_radius: float or None, optional
+        The radius at which ground induced image currents cancel the radial
+        magnetic field. Default in None, in which case there are no
+        induced image currents. This part is based on equations of Appendix A
+        in "Juusola, L., Kauristie, K., Vanhamäki, H., Aikio, A., and 
+        van de Kamp, M. (2016), Comparison of auroral ionospheric and field‐
+        aligned currents derived from Swarm and ground magnetic field measurements, 
+        J. Geophys. Res. Space Physics, 121, 9256– 9283, doi:10.1002/2016JA022961."
 
     Returns
     -------
@@ -328,6 +337,20 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
         Ge = -Ge_ * enu_t[:, :, 1] # eastward component of enu_t is northward component of enu_e (unit vector in local east direction)
         Gn =  Ge_ * enu_t[:, :, 0] # northward component of enu_t is eastward component of enu_e
         Gr =  Ge_ * 0              # no radial component
+
+
+    if induction_nullification_radius != None and current_type == 'divergence_free':
+        # include the effect of telluric image currents
+        radius = induction_nullification_radius**2 / RI
+        amplitude_factor = -RI / induction_nullification_radius
+
+        Ge_, Gn_, Gr_ = get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs, 
+                                              current_type = 'divergence_free',
+                                              RI = radius)
+        Ge = Ge + amplitude_factor * Ge_
+        Gn = Gn + amplitude_factor * Gn_
+        Gr = Gr + amplitude_factor * Gr_
+
 
 
     return Ge, Gn, Gr
