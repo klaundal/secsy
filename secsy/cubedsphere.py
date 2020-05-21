@@ -285,7 +285,7 @@ class CSprojection(object):
         return R_enulocal2enugeo[:, :2, :2] # (N, 2, 2)
 
 
-    def vector_cube_projection(self, east, north, lon, lat):
+    def vector_cube_projection(self, east, north, lon, lat, return_xi_eta = True):
         """ Calculate vector components projected on cube
         
         Perfor vector rotation from geographic system to cube
@@ -302,10 +302,18 @@ class CSprojection(object):
             Array of N longitudes that represent vector positions
         lat: array-like
             Array of N latitudes that represent vector positions
+        return_xi_eta: bool, optional
+            set to False to return only the vector components. If True
+            (default), returning the xi, eta coordinates corresponding 
+            to (lon, lat) as well. 
 
         Returns
         -------
-        Axi: array-like
+        xi: array-like  (if return_xi_eta is True)
+            N element array of xi coordinates
+        eta: array-like
+            N element array of eta coordinates
+        Axi: array-like (if return_xi_eta is True)
             N element array of vector components in xi direction
         Aeta: array-like
             N element array of vector components in eta direction
@@ -344,7 +352,11 @@ class CSprojection(object):
         Acube = np.einsum('nij, nj->ni', R, Alocal).T
 
         # components in xi and eta directions:
-        return Acube[0], Acube[1]
+        Axi, Aeta = Acube[0], Acube[1]
+        if return_xi_eta:
+            return xi, eta, Axi, Aeta
+        else:
+            return Axi, Aeta
 
 
 
