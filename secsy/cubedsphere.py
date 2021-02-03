@@ -470,7 +470,8 @@ class CSgrid(object):
             or W direction. Positive numbers will move the center right (towards
             positive xi)
         R: float (optional)
-            Radius of the sphere. Default is 6371.2 (~Earth's radius in km)
+            Radius of the sphere. Default is 6371.2 (~Earth's radius in km) - if you
+            use this to model the ionosphere, it is probably a good idea to add ~110 km
 
         """
         self.projection = projection
@@ -529,6 +530,7 @@ class CSgrid(object):
 
 
 
+
     def _index(self, i, j):
         """ Calculate the 1D index that corresponds to the grid index i, j
 
@@ -583,8 +585,9 @@ class CSgrid(object):
 
 
     def get_Le_Ln(self, order = None, return_dxi_deta = False):
-        """ calculate the matrix that produces the derivative of an object in self.field
-            in the eastward direction
+        """ calculate the matrix that produces the derivative in the 
+            eastward and northward directions of a scalar field 
+            defined on self
 
         Not implemented/TODO: order
         """
@@ -674,4 +677,77 @@ class CSgrid(object):
         L_s = x10 * L_xi + x11 * L_et
 
         return L_e, -L_s
+
+    def divergence(self, order = None):
+        """ calculate the matrix that produces the divergence of a vector field
+
+        The returned 2N x N matrix operates on a 1D array that represents a vector field.
+        The array must be of length 2N, where N is the number of grid cells. The
+        first N elements are the eastward components and the last N are the northward
+        components. 
+
+        Note - this code is based on equations (12) and (23) of Ronchi. The 'matrification'
+        is explained in my regional data analysis document - it is not super easy to understand
+        it from the code alone. 
+
+
+        Not implemented/TODO: order
+        """
+
+
+        # 1) construct matrix that operates on [[Vxi], [Veta]] to produce
+        #    the divergence of teh vector field V according to equation (23)
+        #    of Ronchi et al. 
+        # 2) construct matrix that converts from east/north to xi/eta in local coords
+        # 3) construct matrix that rotates from global to local coords
+        # 4) combine all three matrices and return
+
+
+        # matrices that calculate differentials
+        L_xi, L_eta = self.get_Le_Ln(order = order, return_dxi_deta = True)
+
+        # define some parameteres that are needed 
+        d   = self.delta.flatten().reshape((-1, 1))
+        X   = self.X.flatten().reshape(    (-1, 1))
+        Y   = self.Y.flatten().reshape(    (-1, 1))
+        D   = self.D.flatten().reshape(    (-1, 1))
+        C   = self.C.flatten().reshape(    (-1, 1))
+        xi  = self.xi.flatten().reshape(   (-1, 1))
+        eta = self.eta.flatten().reshape(  (-1, 1))
+        R = self.R
+
+        I = np.eye(xi.size)
+
+        q1 = d / (R * D * C**2)
+        q2 = -np.tan(xi ) / (R * D * C**2 * np.cos(xi )**2)
+        p1 = d / (R * C * D**2)
+        p2 = -np.tan(eta) / (R * C * D**2 * np.cos(eta)**2)
+
+        # matrix that caculates the divergence with xi/eta components:
+        L = np.hstack((q1 * L_xi + q2 * I, p1 * L_eta + p2 * I))
+
+        dd = np.sqrt(d - 1)
+        aa = -D * Y / dd / np.sqrt(d)
+        bb = -D * X / dd
+        cc =  C * X / dd / np.sqrt(d)
+        dd = -C * Y / dd
+
+        # matrix that rotates from east/north to xi/eta:
+        R = np.vstack((np.hstack((aa * I, bb * I)), np.hstack((cc * I, dd * I)))) 
+
+        # Combine this with the rotation matrix from geocentric east/north to local east/north:
+        lon, lat = self.projection.geo2local(self.lon.flatten(), self.lat.flatten())
+        R_l2g = self.projection.local2geo_enu_rotation(lon, lat)
+        R_g2l = np.swapaxes(R_l2g, 1, 2) # transpose to get rotation from geo 2 local
+
+        r00 =  R_g2l[:, 0, 0].reshape((1, -1))
+        r01 =  R_g2l[:, 0, 1].reshape((1, -1))
+        r10 =  R_g2l[:, 1, 0].reshape((1, -1))
+        r11 =  R_g2l[:, 1, 1].reshape((1, -1))
+
+        RR = np.vstack((np.hstack((r00 * I, r01 * I)), np.hstack((r10 * I, r11 * I)))) 
+
+        # combine the matrices so we get divergence of east/north:
+        return( L.dot(R.dot(RR) ) ) 
+
 
