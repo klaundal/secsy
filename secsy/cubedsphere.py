@@ -528,6 +528,10 @@ class CSgrid(object):
         self.C = np.sqrt(1 + self.X**2)
         self.D = np.sqrt(1 + self.Y**2)
 
+        # set size and shape
+        self.size = grid.lat.size
+        self.shape = grid.lat.shape
+
 
 
 
