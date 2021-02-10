@@ -529,8 +529,8 @@ class CSgrid(object):
         self.D = np.sqrt(1 + self.Y**2)
 
         # set size and shape
-        self.size = grid.lat.size
-        self.shape = grid.lat.shape
+        self.size = self.lat.size
+        self.shape = self.lat.shape
 
 
 
