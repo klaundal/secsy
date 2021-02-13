@@ -328,7 +328,8 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
         theta0 = singularity_limit / RI
         if theta0 > 0:
             alpha = 1 / np.tan(theta0/2)**2
-            Ge_[theta < theta0] = -MU0 * RI * constant * alpha * np.tan(theta[theta < theta0]/2) / r[theta < theta0]
+            rr = np.tile(r, (1, theta.shape[1])) # need one r for every element in matrix
+            Ge_[theta < theta0] = -MU0 * RI * constant * alpha * np.tan(theta[theta < theta0]/2) / rr[theta < theta0]
 
         # zero below current sheet:
         Ge_[below] *= 0 
