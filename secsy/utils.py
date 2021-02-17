@@ -322,14 +322,14 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
 
     elif current_type == 'curl_free':
         # G matrix for local eastward component
-        Ge_ = -MU0 * RI * constant / np.tan(theta/2) / r 
+        Ge_ = -MU0 * constant / np.tan(theta/2) / r 
 
         # apply modifications to handle singularities:
         theta0 = singularity_limit / RI
         if theta0 > 0:
             alpha = 1 / np.tan(theta0/2)**2
             rr = np.tile(r, (1, theta.shape[1])) # need one r for every element in matrix
-            Ge_[theta < theta0] = -MU0 * RI * constant * alpha * np.tan(theta[theta < theta0]/2) / rr[theta < theta0]
+            Ge_[theta < theta0] = -MU0 * constant * alpha * np.tan(theta[theta < theta0]/2) / rr[theta < theta0]
 
         # zero below current sheet:
         Ge_[below] *= 0 
