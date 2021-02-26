@@ -310,7 +310,7 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
         Sr[above] = sa / np.sqrt(1 + sa**2 - 2 * sa * np.cos(theta[above])) - sa
         Gr = Ar * Sr
 
-        An_ = MU0 * constant / (r * np.sin(theta))  # common factor local northward direction
+        An_ = MU0 * constant / (r * np.sin(theta))  # common factor local northward (note sign difference wrt theta) direction
         Sn_ = np.zeros_like(theta)
         Sn_[below] = (sb -      np.cos(theta[below])) / np.sqrt(1 + sb**2 - 2 * sb * np.cos(theta[below])) + np.cos(theta[below])
         Sn_[above] = (1  - sa * np.cos(theta[above])) / np.sqrt(1 + sa**2 - 2 * sa * np.cos(theta[above])) - 1

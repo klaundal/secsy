@@ -375,9 +375,10 @@ class CSprojection(object):
         reader = shpreader.Reader(shpfilename)
         coastlines = reader.records()
         for coastline in coastlines:
-            for line in coastline.geometry.geoms:
-                lon, lat = np.array(line.coords[:]).T 
-                yield self.geo2cube(lon, lat)
+            if not coastline.geometry.is_closed:
+                continue
+            lon, lat = np.array(coastline.geometry.coords[:]).T 
+            yield self.geo2cube(lon, lat)
 
     def differentials(self, xi, eta, dxi, deta, R = 1):
         """ calculate magnitudes of line and surface elements 
@@ -478,9 +479,11 @@ class CSgrid(object):
         self.R = R
         self.wshift = wshift
 
-        # normalize L and H to unit square:
-        self.L = L / self.R
-        self.W = W / self.R
+        # dimensions::
+        self.L = L
+        self.W = W
+        self.Lres = Lres
+        self.Wres = Wres
 
         # make xi and eta arrays for the grid cell boundaries:
         if isinstance(Lres, int):
@@ -751,7 +754,7 @@ class CSgrid(object):
 
         RR = np.vstack((np.hstack((r00 * I, r01 * I)), np.hstack((r10 * I, r11 * I)))) 
 
-        # combine the matrices so we get divergence of east/north:
-        return( L.dot(R.dot(RR) ) ) 
+        # combine the matrices so we get divergence of east/north
+        return( -L.dot(R.dot(RR) ) ) 
 
 
