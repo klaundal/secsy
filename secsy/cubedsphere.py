@@ -374,11 +374,19 @@ class CSprojection(object):
         shpfilename = shpreader.natural_earth(**kwargs)
         reader = shpreader.Reader(shpfilename)
         coastlines = reader.records()
+        multilinestrings = []
         for coastline in coastlines:
-            if not coastline.geometry.is_closed:
+            if coastline.geometry.geom_type == 'MultiLineString':
+                multilinestrings.append(coastline.geometry)
                 continue
             lon, lat = np.array(coastline.geometry.coords[:]).T 
             yield self.geo2cube(lon, lat)
+
+        for mls in multilinestrings:
+            for ls in mls:
+                lon, lat = np.array(ls.coords[:]).T 
+                yield self.geo2cube(lon, lat)
+
 
     def differentials(self, xi, eta, dxi, deta, R = 1):
         """ calculate magnitudes of line and surface elements 
