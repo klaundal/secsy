@@ -574,6 +574,40 @@ class CSgrid(object):
             print('invalid index?', i, j, self.NL, self.NW)
 
 
+    def ingrid(self, lon, lat, ext_factor = 1.):
+        """ determine if lon, lat are inside grid boundaries or not.
+
+            Parameters
+            ----------
+            lon: array
+                array of longitudes [degrees] - must have same shape as lat
+            lat: array
+                array of latitudes [degrees] - must have same shape as lon
+            ext_factor: float, optional
+                Set ext_factor to a number > 1 to extend self.L and self.W
+                by the given factor to include include points that are
+                outside the grid        
+
+            Returns
+            -------
+            array of bools with shape of lon and lat
+        """
+        lat, lon = np.array(lat), np.array(lon)
+        if lon.shape != lat.shape:
+            raise Exception('CSgrid.ingrid: lon and lat must have same shape')
+        shape = lon.shape
+        lon, lat = lon.flatten(), lat.flatten()
+
+        xi, eta = self.projection.geo2cube(lon, lat)
+        ximin , ximax  = self.xi.min()  * ext_factor, self.xi.max()  * ext_factor
+        etamin, etamax = self.eta.min() * ext_factor, self.eta.max() * ext_factor
+
+        return ((xi < ximax) & (xi > ximin) & (eta < etamax) & (eta > etamin)).reshape(shape)
+
+
+
+
+
     def get_grid_boundaries(self, geocentric = True):
         """ get grid boundaries for plotting 
             
