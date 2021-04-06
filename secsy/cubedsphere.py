@@ -544,10 +544,23 @@ class CSgrid(object):
         self.shape = self.lat.shape
 
 
+    def __repr__(self):
+        """ string representation """
+
+        th0, th1 = 2 * self.xi.max() / d2r, 2 * self.eta.max() / d2r
+        e, n = self.projection.orientation[0], self.projection.orientation[1]
+        lon, lat = self.projection.lon0, self.projection.lat0,
+
+        return( ('{} x {} cubed sphere grid\n'.format(self.shape[0], self.shape[1]) +
+                 'Centered at lon, lat = {:.1f}, {:.1f}\n'.format(lon, lat) +
+                 'Orientation: {:.2f} east, {:.2f} north\n'.format(e, n) +
+                 'Extent: ~{:.1f} x {:.1f} degrees central angle'.format(th0, th1) ))
+
 
 
     def _index(self, i, j):
-        """ Calculate the 1D index that corresponds to the grid index i, j
+        """ 
+        Calculate the 1D index that corresponds to the grid index i, j
 
         Parameters
         ----------
@@ -574,23 +587,59 @@ class CSgrid(object):
             print('invalid index?', i, j, self.NL, self.NW)
 
 
+    def count(self, lon, lat, **kwargs):
+        """ 
+        Count number of points in each grid cell
+
+        Parameters
+        ----------
+        lon : array
+            array of longitudes [degrees]. Must have same size as lat
+        lat : array
+            array of latitudes [degrees]. Must have same size as lon
+        kwargs : dict, optional
+            passed to numpy.histogram2d. Use this if you want density, 
+            normed, or weighted histograms for example. 
+
+
+        Returns
+        -------
+        count : array
+            array with count of how many of the coordinates defined
+            by lon, lat are in each grid cell. Same shape as self.lat
+            and self.lon
+        """
+
+        lon, lat = lon.flatten(), lat.flatten()
+        xi, eta = self.projection.geo2cube(lon, lat)
+
+        xi_edges, eta_edges = self.xi_mesh[0, :], self.eta_mesh[:, 0]
+        count, xi_, eta_ = np.histogram2d(xi, eta, (xi_edges, eta_edges), **kwargs)
+
+        return(count.T) # transpose because xi should be horizontal and eta vertical
+
+
+
+
+
     def ingrid(self, lon, lat, ext_factor = 1.):
-        """ determine if lon, lat are inside grid boundaries or not.
+        """ 
+        Determine if lon, lat are inside grid boundaries or not.
 
-            Parameters
-            ----------
-            lon: array
-                array of longitudes [degrees] - must have same shape as lat
-            lat: array
-                array of latitudes [degrees] - must have same shape as lon
-            ext_factor: float, optional
-                Set ext_factor to a number > 1 to extend self.L and self.W
-                by the given factor to include include points that are
-                outside the grid        
+        Parameters
+        ----------
+        lon: array
+            array of longitudes [degrees] - must have same shape as lat
+        lat: array
+            array of latitudes [degrees] - must have same shape as lon
+        ext_factor: float, optional
+            Set ext_factor to a number > 1 to extend self.L and self.W
+            by the given factor to include include points that are
+            outside the grid        
 
-            Returns
-            -------
-            array of bools with shape of lon and lat
+        Returns
+        -------
+        array of bools with shape of lon and lat
         """
         lat, lon = np.array(lat), np.array(lon)
         if lon.shape != lat.shape:
@@ -604,21 +653,18 @@ class CSgrid(object):
 
         return ((xi < ximax) & (xi > ximin) & (eta < etamax) & (eta > etamin)).reshape(shape)
 
-
-
-
-
     def get_grid_boundaries(self, geocentric = True):
-        """ get grid boundaries for plotting 
+        """ 
+        Get grid boundaries for plotting 
             
-            yields tuples of (lon, lat) arrays that outline
-            the grid cell boundaries. 
+        Yields tuples of (lon, lat) arrays that outline
+        the grid cell boundaries. 
 
-            Example:
-            --------
-            for c in obj.get_grid_boundaries():
-                lon, lat = c
-                plot(lon, lat, 'k-', transform = ccrs.Geocentric())
+        Example:
+        --------
+        for c in obj.get_grid_boundaries():
+            lon, lat = c
+            plot(lon, lat, 'k-', transform = ccrs.Geocentric())
         """
         if geocentric:
             x, y = self.lon_mesh, self.lat_mesh
@@ -634,9 +680,13 @@ class CSgrid(object):
 
 
     def get_Le_Ln(self, order = None, return_dxi_deta = False):
-        """ calculate the matrix that produces the derivative in the 
-            eastward and northward directions of a scalar field 
-            defined on self
+        """ 
+        Calculate the matrix that produces the derivative in the 
+        eastward and northward directions of a scalar field 
+        defined on self
+
+        set return_dxi_deta to True to return the matrices that 
+        differentiate in cubed sphere coordinates instead of geo
 
         Not implemented/TODO: order
         """
@@ -727,17 +777,19 @@ class CSgrid(object):
 
         return L_e, -L_s
 
+
     def divergence(self, order = None):
-        """ calculate the matrix that produces the divergence of a vector field
+        """ 
+        Calculate the matrix that produces the divergence of a vector field
 
-        The returned 2N x N matrix operates on a 1D array that represents a vector field.
-        The array must be of length 2N, where N is the number of grid cells. The
-        first N elements are the eastward components and the last N are the northward
-        components. 
+        The returned 2N x N matrix operates on a 1D array that represents a 
+        vector field. The array must be of length 2N, where N is the number 
+        of grid cells. The first N elements are the eastward components and 
+        the last N are the northward components. 
 
-        Note - this code is based on equations (12) and (23) of Ronchi. The 'matrification'
-        is explained in my regional data analysis document - it is not super easy to understand
-        it from the code alone. 
+        Note - this code is based on equations (12) and (23) of Ronchi. The 
+        'matrification' is explained in my regional data analysis document;
+        it is not super easy to understand it from the code alone. 
 
 
         Not implemented/TODO: order
@@ -747,7 +799,8 @@ class CSgrid(object):
         # 1) construct matrix that operates on [[Vxi], [Veta]] to produce
         #    the divergence of teh vector field V according to equation (23)
         #    of Ronchi et al. 
-        # 2) construct matrix that converts from east/north to xi/eta in local coords
+        # 2) construct matrix that converts from east/north to xi/eta 
+        #    in local coords
         # 3) construct matrix that rotates from global to local coords
         # 4) combine all three matrices and return
 
