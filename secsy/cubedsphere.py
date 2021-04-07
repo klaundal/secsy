@@ -619,7 +619,45 @@ class CSgrid(object):
         return(count.T) # transpose because xi should be horizontal and eta vertical
 
 
+    def bin_index(self, lon, lat):
+        """
+        Find the bin index (i, j) for each pair (lon, lat)
 
+        Parameters
+        ----------
+        lon : array
+            array of longitudes [degrees]. Must have same size as lat
+        lat : array
+            array of latitudes [degrees]. Must have same size as lon
+
+        Returns
+        -------
+        i : array
+            index array for each point (lon, lat) along axis 0 (eta direction)
+            N-dimensional array where N is equal to lon.size and lat.size
+        j : array
+            index array for each point (lon, lat) along axis 1 (xi direction)
+            N-dimensional array where N is equal to lon.size and lat.size
+
+
+        Note
+        ----
+        Points that are outside the grid will be given index -1
+        """
+
+        lon, lat = lon.flatten(), lat.flatten()
+        xi, eta = self.projection.geo2cube(lon, lat)
+
+        xi_edges, eta_edges = self.xi_mesh[0, :], self.eta_mesh[:, 0]
+
+        i = np.digitize(eta, eta_edges) - 1
+        j = np.digitize(xi , xi_edges ) - 1
+
+        iii = ~self.ingrid(lon, lat) # points not in grid
+        i[iii] = -1
+        j[iii] = -1
+
+        return(i, j)
 
 
     def ingrid(self, lon, lat, ext_factor = 1.):
@@ -641,6 +679,7 @@ class CSgrid(object):
         -------
         array of bools with shape of lon and lat
         """
+
         lat, lon = np.array(lat), np.array(lon)
         if lon.shape != lat.shape:
             raise Exception('CSgrid.ingrid: lon and lat must have same shape')
@@ -648,10 +687,11 @@ class CSgrid(object):
         lon, lat = lon.flatten(), lat.flatten()
 
         xi, eta = self.projection.geo2cube(lon, lat)
-        ximin , ximax  = self.xi.min()  * ext_factor, self.xi.max()  * ext_factor
-        etamin, etamax = self.eta.min() * ext_factor, self.eta.max() * ext_factor
+        ximin , ximax  = self.xi_mesh.min()  * ext_factor, self.xi_mesh.max()  * ext_factor
+        etamin, etamax = self.eta_mesh.min() * ext_factor, self.eta_mesh.max() * ext_factor
 
         return ((xi < ximax) & (xi > ximin) & (eta < etamax) & (eta > etamin)).reshape(shape)
+
 
     def get_grid_boundaries(self, geocentric = True):
         """ 
