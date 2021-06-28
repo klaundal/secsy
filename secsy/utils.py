@@ -160,7 +160,7 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
         raise Exception('type must be "divergence_free", "curl_free", "potential", or "sclar"')
 
     # get the scalar part of Amm's divergence-free SECS:    
-    theta  = np.arccos(np.einsum('ij,kj->ik', ecef_r_secs, ecef_r_data))
+    theta  = np.arccos(np.clip(np.einsum('ij,kj->ik', ecef_r_secs, ecef_r_data), -1, 1))
     if current_type in ['divergence_free', 'curl_free']:
         coeff = constant /np.tan(theta/2)/ RI
 
