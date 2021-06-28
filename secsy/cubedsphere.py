@@ -446,7 +446,7 @@ class CSprojection(object):
 
 
 class CSgrid(object):
-    def __init__(self, projection, L, W, Lres, Wres, wshift = 0, R = 6371.2):
+    def __init__(self, projection, L, W, Lres, Wres, edges = None, wshift = 0, R = 6371.2):
         """ set up grid for cubed sphere projection 
         
         Create a regular grid in xi,eta-coordinates. The grid will cover a 
@@ -478,6 +478,9 @@ class CSgrid(object):
             Distance, in units of R, by which to move the grid in the xi-direction, 
             or W direction. Positive numbers will move the center right (towards
             positive xi)
+        edges: tuple, optional
+            if you want to force the grid in xi/eta space to certain values, provide
+            them in this tuple. 
         R: float (optional)
             Radius of the sphere. Default is 6371.2 (~Earth's radius in km) - if you
             use this to model the ionosphere, it is probably a good idea to add ~110 km
@@ -494,12 +497,15 @@ class CSgrid(object):
         self.Wres = Wres
 
         # make xi and eta arrays for the grid cell boundaries:
-        if isinstance(Lres, int):
-            xi_edge  = np.linspace(-np.arctan(W/R)/2, np.arctan(W/R)/2, Lres + 1) - wshift/self.R
-            eta_edge = np.linspace(-np.arctan(L/R)/2, np.arctan(L/R)/2, Wres + 1)
+        if edges == None:
+            if isinstance(Lres, int):
+                xi_edge  = np.linspace(-np.arctan(W/R)/2, np.arctan(W/R)/2, Lres + 1) - wshift/self.R
+                eta_edge = np.linspace(-np.arctan(L/R)/2, np.arctan(L/R)/2, Wres + 1) - wshift/self.R
+            else:
+                xi_edge  = np.r_[-np.arctan(W/R)/2:np.arctan(W/R)/2:np.arctan(Wres/(R))] - wshift/self.R
+                eta_edge = np.r_[-np.arctan(L/R)/2:np.arctan(L/R)/2:np.arctan(Lres/(R))] - wshift/self.R
         else:
-            xi_edge  = np.r_[-np.arctan(W/R)/2:np.arctan(W/R)/2:np.arctan(Wres/(R))] - wshift/self.R
-            eta_edge = np.r_[-np.arctan(L/R)/2:np.arctan(L/R)/2:np.arctan(Lres/(R))]
+            xi_edge, eta_edge = edges
 
         # outer grid limits in xi and eta coords:
         self.xi_min, self.xi_max = xi_edge.min(), xi_edge.max()
