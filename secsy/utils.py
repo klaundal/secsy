@@ -15,6 +15,13 @@ MU0 = 4 * np.pi * 1e-7
 RE = 6371.2 * 1e3
 
 
+def dpclip(x, delta = 1e-7):
+    """ 
+    dot product clip:
+    clip x to values between -1 + delta and 1 - delta
+    """
+    return np.clip(x, -1 + delta, 1 - delta)
+
 def get_theta(lat, lon, lat_secs, lon_secs, return_degrees = False):
     """" calculate theta angle - the angle between data point and secs node.
 
@@ -58,7 +65,7 @@ def get_theta(lat, lon, lat_secs, lon_secs, return_degrees = False):
     ecef_r_secs = np.vstack((np.cos(la_s) * np.cos(lo_s), np.cos(la_s) * np.sin(lo_s), np.sin(la_s))).T
 
     # the polar angles (N, M):
-    theta = np.arccos(np.einsum('ij, kj -> ik', ecef_r_data, ecef_r_secs))
+    theta = np.arccos(dpclip(np.einsum('ij, kj -> ik', ecef_r_data, ecef_r_secs)))
 
     if return_degrees:
         theta = theta / d2r 
@@ -160,7 +167,7 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
         raise Exception('type must be "divergence_free", "curl_free", "potential", or "sclar"')
 
     # get the scalar part of Amm's divergence-free SECS:    
-    theta  = np.arccos(np.clip(np.einsum('ij,kj->ik', ecef_r_secs, ecef_r_data), -1, 1))
+    theta  = np.arccos(dpclip(np.einsum('ij,kj->ik', ecef_r_secs, ecef_r_data)))
     if current_type in ['divergence_free', 'curl_free']:
         coeff = constant /np.tan(theta/2)/ RI
 
@@ -291,7 +298,7 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
     enu_t = np.einsum('lij, lkj->lki', R, ecef_t)[:, :, :-1] # remove last component (up), which should deviate from zero only by machine precicion
 
     # the polar angles (N, M):
-    theta = np.arccos(np.einsum('ij, kj -> ik', ecef_r_data, ecef_r_secs))
+    theta = np.arccos(dpclip(np.einsum('ij, kj -> ik', ecef_r_data, ecef_r_secs)))
 
 
     # indices of data points that are below and above current sheet:
