@@ -1,11 +1,5 @@
 """ 
-
-Functions:
-----------
-get_theta
-get_SECS_J_G_matrices
-get_SECS_B_G_matrices
-
+SECS utils
 
 """
 
