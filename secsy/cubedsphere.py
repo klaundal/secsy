@@ -17,12 +17,15 @@
     https://doi.org/10.1006/jcph.1996.0047.
 
     KML, May 2020
+    Updates:
+    - June 2021: Made differentiation matrix sparse + arbitrary stencil
 """
 
 import numpy as np
-d2r = np.pi / 180
-from secsy import spherical
+from secsy import spherical, diffutils
 import cartopy.io.shapereader as shpreader
+from scipy import sparse
+d2r = np.pi / 180
 
 class CSprojection(object):
     def __init__(self, position, orientation):
@@ -150,7 +153,7 @@ class CSprojection(object):
 
         X = np.tan(xi)
         Y = np.tan(eta)
-        phi = -np.arctan(X / Y)
+        phi = -np.arctan2(X , Y)
         theta = np.arctan(X / np.sin(phi))
 
         lon, lat = self.local2geo(phi / d2r, 90 - theta / d2r)
@@ -535,9 +538,6 @@ class CSgrid(object):
         # geocentric lon, colat [rad] of grid points:
         self.phi, self.theta = self.lon * d2r, (90 - self.lat) * d2r
 
-        # longitude and colatitude of grid points in local spherical coords:
-        self.local_phi, self.local_theta = self.local_lon * d2r, (90 - self.local_lat) * d2r
-
         # cubed square parameters for grid points (cell centers)
         self.X = np.tan(-self.xi)
         self.Y = np.tan(-self.eta)
@@ -580,15 +580,11 @@ class CSgrid(object):
         1D array of ints which denote the index(es) of i, j in a flattened version
         of a 2D array of shape (self.NL, self.NW)
         """
-        i = np.array(i)
-        j = np.array(j)
-
-        # handle negative indices:
-        i[i < 0] = self.NL + i[i < 0]
-        j[j < 0] = self.NW + j[j < 0]
+        i = np.array(i) % self.NL # wrap negative indices to other end
+        j = np.array(j) % self.NW
         
         try:
-            return np.ravel_multi_index((i, j), (self.NL, self.NW))
+            return np.ravel_multi_index((i, j), (self.NL, self.NW)).flatten()
         except:
             print('invalid index?', i, j, self.NL, self.NW)
 
@@ -725,7 +721,7 @@ class CSgrid(object):
                 yield (x[:, i], y[:, i])
 
 
-    def get_Le_Ln(self, order = None, return_dxi_deta = False):
+    def get_Le_Ln(self, S = 1, return_dxi_deta = False):
         """ 
         Calculate the matrix that produces the derivative in the 
         eastward and northward directions of a scalar field 
@@ -734,41 +730,79 @@ class CSgrid(object):
         set return_dxi_deta to True to return the matrices that 
         differentiate in cubed sphere coordinates instead of geo
 
-        Not implemented/TODO: order
+        S: stencil size
         """
+
 
         dxi = self.dxi
         det = self.deta
         N = self.NL
         M = self.NW
 
-        D_xi = np.zeros((N * M, N * M))
-        D_et = np.zeros((N * M, N * M))
+        D_xi = {'rows':[], 'cols':[], 'elements':[]}
+        D_et = {'rows':[], 'cols':[], 'elements':[]}
 
-        i , j  = np.arange(N), np.arange(M)
+        # index arrays (0 to N, M)
+        i_arr = np.arange(N)
+        j_arr = np.arange(M)
 
-        # inner cells:
-        ii, jj = np.meshgrid(i[1:-1], j[1:-1])
-        D_xi[self._index(ii, jj), self._index(ii    , jj + 1)] += 1. / (2 * dxi)
-        D_xi[self._index(ii, jj), self._index(ii    , jj - 1)] -= 1. / (2 * dxi)
-        D_et[self._index(ii, jj), self._index(ii + 1, jj    )] += 1. / (2 * det)
-        D_et[self._index(ii, jj), self._index(ii - 1, jj    )] -= 1. / (2 * det)
+        # meshgrid versions:
+        ii, jj = np.meshgrid(i_arr, j_arr, indexing = 'xy')
 
-        # edges, derivative wrt to xi
-        D_xi[self._index( 0,  j[1:-1]), self._index( 0,j[1:-1] + 1)] += 1. / (2 * dxi)
-        D_xi[self._index( 0,  j[1:-1]), self._index( 0,j[1:-1] - 1)] -= 1. / (2 * dxi)
-        D_xi[self._index(-1,  j[1:-1]), self._index(-1,j[1:-1] + 1)] += 1. / (2 * dxi)
-        D_xi[self._index(-1,  j[1:-1]), self._index(-1,j[1:-1] - 1)] -= 1. / (2 * dxi)
-        D_xi[self._index(i,  0), :] = D_xi[self._index(i,  1), :] # TODO: improve edges
-        D_xi[self._index(i, -1), :] = D_xi[self._index(i, -2), :] 
+        # inner grid points:
+        points = np.r_[-S:S+1:1]
+        coefficients = diffutils.stencil(points, order = 1)
+        i_dx, j_dx = ii  [:, S:-S], jj  [:, S:-S]
+        i_dy, j_dy = ii.T[:, S:-S], jj.T[:, S:-S]
 
-        # edges, derivative wrt to eta
-        D_et[self._index(i[1:-1],  0), self._index(i[1:-1] + 1,  0)] += 1. / (2 * det)
-        D_et[self._index(i[1:-1],  0), self._index(i[1:-1] - 1,  0)] -= 1. / (2 * det)
-        D_et[self._index(i[1:-1], -1), self._index(i[1:-1] + 1, -1)] += 1. / (2 * det)
-        D_et[self._index(i[1:-1], -1), self._index(i[1:-1] - 1, -1)] -= 1. / (2 * det)
-        D_et[self._index( 0, j)] = D_et[self._index( 1, j)] # TODO: imrove edges
-        D_et[self._index(-1, j)] = D_et[self._index(-2, j)] 
+        for ll in range(len(points)):
+            D_et['rows']    .append(self._index(i_dx, j_dx             ))
+            D_et['cols']    .append(self._index(i_dx + points[ll], j_dx))
+            D_et['elements'].append(np.full(i_dx.size, coefficients[ll] / det))
+
+            D_xi['rows']    .append(self._index(i_dy, j_dy             ))
+            D_xi['cols']    .append(self._index(i_dy, j_dy + points[ll]))
+            D_xi['elements'].append(np.full(i_dy.size, coefficients[ll] / dxi))
+
+        # boundaries
+        for kk in np.arange(0, S)[::-1]:
+
+            # LEFT
+            points = np.r_[-kk:S+1:1] 
+            coefficients = diffutils.stencil(points, order = 1)
+            i_dx, j_dx = ii  [:, kk], jj  [:, kk]
+            i_dy, j_dy = ii.T[:, kk], jj.T[:, kk]
+
+            for ll in range(len(points)):
+                D_et['rows']    .append(self._index(i_dx, j_dx             ))
+                D_et['cols']    .append(self._index(i_dx + points[ll], j_dx))
+                D_et['elements'].append(np.full(i_dx.size, coefficients[ll] / det))
+
+                D_xi['rows']    .append(self._index(i_dy, j_dy             ))
+                D_xi['cols']    .append(self._index(i_dy, j_dy + points[ll]))
+                D_xi['elements'].append(np.full(i_dy.size, coefficients[ll] / dxi))
+
+            # RIGHT
+            points = np.r_[-S:kk+1:1] 
+            coefficients = diffutils.stencil(points, order = 1)
+            i_dx, j_dx = ii  [:, -(kk + 1)], jj  [:, -(kk + 1)]
+            i_dy, j_dy = ii.T[:, -(kk + 1)], jj.T[:, -(kk + 1)]
+
+            for ll in range(len(points)):
+                D_et['rows']    .append(self._index(i_dx, j_dx             ))
+                D_et['cols']    .append(self._index(i_dx + points[ll], j_dx))
+                D_et['elements'].append(np.full(i_dx.size, coefficients[ll] / det))
+
+                D_xi['rows']    .append(self._index(i_dy, j_dy             ))
+                D_xi['cols']    .append(self._index(i_dy, j_dy + points[ll]))
+                D_xi['elements'].append(np.full(i_dy.size, coefficients[ll] / dxi))
+
+
+        D_xi = {key:np.hstack(D_xi[key]) for key in D_xi.keys()}
+        D_et = {key:np.hstack(D_et[key]) for key in D_et.keys()}
+
+        D_xi = sparse.csc_matrix((D_xi['elements'], (D_xi['rows'], D_xi['cols'])), shape = (N * M, N * M))
+        D_et = sparse.csc_matrix((D_et['elements'], (D_et['rows'], D_et['cols'])), shape = (N * M, N * M))
 
         if return_dxi_deta:
             return D_xi, D_et
@@ -780,19 +814,20 @@ class CSgrid(object):
         C = self.C.flatten().reshape((1, -1))
         d = self.delta.flatten().reshape((1, -1))
 
-        # equation 21 of Ronchi et al.
-        L_xi = (D     * D_xi     + X * Y * D_et / D) / self.R
-        L_et = (X * Y * D_xi / C +     C * D_et    ) / self.R
+        I = sparse.eye(self.size)
+
+        # equation 21 of Ronchi et al. (reverse sign since I use -xi, -eta)
+        L_xi = -(D_xi.multiply(D        ) + D_et.multiply(X * Y / D)) / self.R
+        L_et = -(D_xi.multiply(X * Y / C) + D_et.multiply(    C    )) / self.R
         dd = np.sqrt(d - 1)
 
         # conversion from xi/eta to geocentric east/west is accomplished through the
-        # matrix in equation 14 of Ronchi et al. (instead of 12 since the signs of 
-        # xi/eta are reversed in this implementation) 
+        # matrix in equation 14 of Ronchi et al. 
         # The elements of this matrix are:
-        a00 = -D * X / dd 
-        a01 =  D * Y / dd / np.sqrt(d)
-        a10 = -C * Y / dd
-        a11 = -C * X / dd / np.sqrt(d)        
+        a00 =  D * X / dd 
+        a01 = -D * Y / dd / np.sqrt(d) 
+        a10 =  C * Y / dd 
+        a11 =  C * X / dd / np.sqrt(d)        
 
         # The a matrix converts from local theta/phi to xi/eta. The elements of
         # the inverse are:
@@ -800,31 +835,31 @@ class CSgrid(object):
         b00 =  a11 /det 
         b01 = -a01 /det 
         b10 = -a10 /det 
-        b11 =  a11 /det 
+        b11 =  a00 /det 
 
-        # Combine this with the rotation matrix from local east/north to geocentric east/south:
-        lon, lat = self.projection.geo2local(self.lon.flatten(), self.lat.flatten())
-        R = self.projection.local2geo_enu_rotation(lon, lat)
-        r10 =  R[:, 0, 0].reshape((1, -1))
-        r11 =  R[:, 0, 1].reshape((1, -1))
-        r00 =  R[:, 1, 0].reshape((1, -1))
-        r01 =  R[:, 1, 1].reshape((1, -1))
-        # where I have switched the order of the rows and multiplied first row by -1
+        # matrix that converts from xi/eta to local east/north
+        Be_ = sparse.hstack((I.multiply(b00), I.multiply(b01)))
+        Bn_ = sparse.hstack((I.multiply(b10), I.multiply(b11)))
+
+        # Make rotation matrix from local east/north to geocentric east/south:
+        R_l2g = self.projection.local2geo_enu_rotation(self.local_lon.flatten(), self.local_lat.flatten())
+        r10 =  -R_l2g[:, 0, 0].reshape((1, -1))
+        r11 =  -R_l2g[:, 0, 1].reshape((1, -1))
+        r00 =   R_l2g[:, 1, 0].reshape((1, -1))
+        r01 =   R_l2g[:, 1, 1].reshape((1, -1))
+        Re = sparse.hstack((I.multiply(r00), I.multiply(r01)))
+        Rn = sparse.hstack((I.multiply(r10), I.multiply(r11)))
+        # where I switched the order of the rows and multiplied first row by -1
         # so that R acts on (south/east) instead of (east/north). 
-        # This is consistent with b, so we can combine the operations:
-        x00 = r00*b00 + r01*b10
-        x01 = r00*b01 + r01*b11
-        x10 = r10*b00 + r11*b10
-        x11 = r10*b01 + r11*b11
 
-        # finally the matrices that calculate the east/north components
-        L_e = x00 * L_xi + x01 * L_et
-        L_s = x10 * L_xi + x11 * L_et
+        # combine all three operations: Differentiation of xi/eta, conversion to local, conversion to global
+        L = sparse.vstack((Re, Rn)).dot(sparse.vstack((Be_, Bn_))).dot(sparse.vstack((L_xi, L_et)))
 
-        return L_e, -L_s
+        # and return the upper and lower parts of L:
+        return L[:self.size], L[self.size:]
 
 
-    def divergence(self, order = None):
+    def divergence(self, S = 1):
         """ 
         Calculate the matrix that produces the divergence of a vector field
 
@@ -838,7 +873,6 @@ class CSgrid(object):
         it is not super easy to understand it from the code alone. 
 
 
-        Not implemented/TODO: order
         """
 
 
@@ -852,7 +886,7 @@ class CSgrid(object):
 
 
         # matrices that calculate differentials
-        L_xi, L_eta = self.get_Le_Ln(order = order, return_dxi_deta = True)
+        L_xi, L_eta = self.get_Le_Ln(S = S, return_dxi_deta = True)
 
         # define some parameteres that are needed 
         d   = self.delta.flatten().reshape((-1, 1))
@@ -864,7 +898,7 @@ class CSgrid(object):
         eta = self.eta.flatten().reshape(  (-1, 1))
         R = self.R
 
-        I = np.eye(xi.size)
+        I = sparse.eye(xi.size)
 
         q1 = d / (R * D * C**2)
         q2 = -np.tan(xi ) / (R * D * C**2 * np.cos(xi )**2)
@@ -872,7 +906,7 @@ class CSgrid(object):
         p2 = -np.tan(eta) / (R * C * D**2 * np.cos(eta)**2)
 
         # matrix that caculates the divergence with xi/eta components:
-        L = np.hstack((q1 * L_xi + q2 * I, p1 * L_eta + p2 * I))
+        L = sparse.hstack((L_xi.multiply(q1) + I.multiply(q2), L_eta.multiply(p1) + I.multiply(p2)))
 
         dd = np.sqrt(d - 1)
         aa = -D * Y / dd / np.sqrt(d)
@@ -881,11 +915,11 @@ class CSgrid(object):
         dd = -C * Y / dd
 
         # matrix that rotates from east/north to xi/eta:
-        R = np.vstack((np.hstack((aa * I, bb * I)), np.hstack((cc * I, dd * I)))) 
+        R = sparse.vstack((sparse.hstack((I.multiply(aa), I.multiply(bb))), 
+                           sparse.hstack((I.multiply(cc), I.multiply(dd))))) 
 
         # Combine this with the rotation matrix from geocentric east/north to local east/north:
-        lon, lat = self.projection.geo2local(self.lon.flatten(), self.lat.flatten())
-        R_l2g = self.projection.local2geo_enu_rotation(lon, lat)
+        R_l2g = self.projection.local2geo_enu_rotation(self.local_lon.flatten(), self.local_lat.flatten())
         R_g2l = np.swapaxes(R_l2g, 1, 2) # transpose to get rotation from geo 2 local
 
         r00 =  R_g2l[:, 0, 0].reshape((1, -1))
@@ -893,9 +927,9 @@ class CSgrid(object):
         r10 =  R_g2l[:, 1, 0].reshape((1, -1))
         r11 =  R_g2l[:, 1, 1].reshape((1, -1))
 
-        RR = np.vstack((np.hstack((r00 * I, r01 * I)), np.hstack((r10 * I, r11 * I)))) 
+        RR = sparse.vstack((sparse.hstack((I.multiply(r00), I.multiply(r01))),
+                            sparse.hstack((I.multiply(r10), I.multiply(r11)))))
 
         # combine the matrices so we get divergence of east/north
         return( -L.dot(R.dot(RR) ) ) 
-
 

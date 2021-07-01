@@ -131,3 +131,6 @@ dmypy.json
 
 # mac stuff
 .DS_Store
+
+# testing scripts
+testing/
