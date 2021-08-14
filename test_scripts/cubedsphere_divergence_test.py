@@ -37,7 +37,7 @@ j = np.vstack((je.flatten().reshape((-1, 1)), jn.flatten().reshape((-1, 1))))
 
 
 # calcualte divergence numerically:
-D = grid.divergence(S = 1)
+D = grid.divergence(S = 1, return_sparse = True)
 div_num = D.dot(j).reshape(shape)
 
 # plot comparison

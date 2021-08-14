@@ -721,7 +721,7 @@ class CSgrid(object):
                 yield (x[:, i], y[:, i])
 
 
-    def get_Le_Ln(self, S = 1, return_dxi_deta = False):
+    def get_Le_Ln(self, S = 1, return_dxi_deta = False, return_sparse = False):
         """ 
         Calculate the matrix that produces the derivative in the 
         eastward and northward directions of a scalar field 
@@ -730,7 +730,16 @@ class CSgrid(object):
         set return_dxi_deta to True to return the matrices that 
         differentiate in cubed sphere coordinates instead of geo
 
-        S: stencil size
+        Parameters:
+        -----------
+        S: int, optional
+            Stencil size. Default is 1, in which case derivatives will be calculated
+            with a 3-point stencil. With S = 2, a 5-point stencil will be used. etc.
+        return_dxi_deta: bool, optional
+            Set to True if you want matrices that differentiate in the xi / eta 
+            directions instead of east /  north
+        return_sparse: bool, optional
+            Set to True if you want scipy.sparse matrices instead of dense numpy arrays
         """
 
 
@@ -805,7 +814,10 @@ class CSgrid(object):
         D_et = sparse.csc_matrix((D_et['elements'], (D_et['rows'], D_et['cols'])), shape = (N * M, N * M))
 
         if return_dxi_deta:
-            return D_xi, D_et
+            if return_sparse:
+                return D_xi, D_et
+            else:
+                return D_xi.todense(), D_et.todense()
 
         # convert to gradient compnents
         X = self.X.flatten().reshape((1, -1))
@@ -856,10 +868,14 @@ class CSgrid(object):
         L = sparse.vstack((Re, Rn)).dot(sparse.vstack((Be_, Bn_))).dot(sparse.vstack((L_xi, L_et)))
 
         # and return the upper and lower parts of L:
-        return L[:self.size], L[self.size:]
+        Le, Ln = L[:self.size], L[self.size:]
+        if return_sparse:
+            return Le, Ln
+        else:
+            return Le.todense(), Ln.todense()
 
 
-    def divergence(self, S = 1):
+    def divergence(self, S = 1, return_sparse = False):
         """ 
         Calculate the matrix that produces the divergence of a vector field
 
@@ -872,7 +888,13 @@ class CSgrid(object):
         'matrification' is explained in my regional data analysis document;
         it is not super easy to understand it from the code alone. 
 
-
+        Parameters:
+        -----------
+        S: int, optional
+            Stencil size. Default is 1, in which case derivatives will be calculated
+            with a 3-point stencil. With S = 2, a 5-point stencil will be used. etc.
+        return_sparse: bool, optional
+            Set to True if you want scipy.sparse matrices instead of dense numpy arrays
         """
 
 
@@ -886,7 +908,7 @@ class CSgrid(object):
 
 
         # matrices that calculate differentials
-        L_xi, L_eta = self.get_Le_Ln(S = S, return_dxi_deta = True)
+        L_xi, L_eta = self.get_Le_Ln(S = S, return_dxi_deta = True, return_sparse = True)
 
         # define some parameteres that are needed 
         d   = self.delta.flatten().reshape((-1, 1))
@@ -931,5 +953,6 @@ class CSgrid(object):
                             sparse.hstack((I.multiply(r10), I.multiply(r11)))))
 
         # combine the matrices so we get divergence of east/north
-        return( -L.dot(R.dot(RR) ) ) 
+        D = -L.dot(R.dot(RR) )
+        return D if return_sparse else D.todense()
 

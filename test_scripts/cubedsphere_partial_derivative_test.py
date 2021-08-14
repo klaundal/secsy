@@ -14,8 +14,8 @@ grid = CSgrid(projection, 5000, 5000, 5., 10., R = 1000)
 shape = grid.lat.shape
 ph = grid.lon * np.pi / 180
 th = (90 - grid.lat) * np.pi / 180
-Lxi, Leta = grid.get_Le_Ln(S = 3, return_dxi_deta = True)
-Le, Ln = grid.get_Le_Ln(S = 3)
+Lxi, Leta = grid.get_Le_Ln(S = 3, return_dxi_deta = True, return_sparse = True)
+Le, Ln = grid.get_Le_Ln(S = 3, return_sparse = True)
 
 ###### CARTESIAN FUNCTION ################
 ##########################################
