@@ -872,7 +872,7 @@ class CSgrid(object):
         if return_sparse:
             return Le, Ln
         else:
-            return Le.todense(), Ln.todense()
+            return np.array(Le.todense()), np.array(Ln.todense())
 
 
     def divergence(self, S = 1, return_sparse = False):
@@ -954,5 +954,5 @@ class CSgrid(object):
 
         # combine the matrices so we get divergence of east/north
         D = -L.dot(R.dot(RR) )
-        return D if return_sparse else D.todense()
+        return D if return_sparse else np.array(D.todense())
 
