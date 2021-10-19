@@ -7,11 +7,11 @@ from secsy import CSgrid, CSprojection
 d2r = np.pi / 180
 
 lat0, lon0 = 60., 150. # center of projection
-e, n = -3, -10. # orientation of projection in east/north
+orientation = 45. # orientation of projection in east/north
 
 N, M = 25, 25 # SH degree and order of the spherical harmonic used for testing
 
-projection = CSprojection((lon0, lat0), (e, n))
+projection = CSprojection((lon0, lat0), orientation)
 grid = CSgrid(projection, 3000, 2000, 5., 5.)
 shape = grid.lat.shape
 ph = grid.lon * np.pi / 180
@@ -49,7 +49,7 @@ axs[1].set_title('Divergence numerical')
 axs[2].scatter(div_analytic.flatten(), div_num.flatten())
 axs[2].set_xlabel('analytic')
 axs[2].set_ylabel('numerical')
-
+   
 plt.ion()
 plt.show()
 plt.pause(0.001)

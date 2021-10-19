@@ -8,14 +8,14 @@ import matplotlib.pyplot as plt
 N, M = 4, 4 # SH degree and order of the spherical harmonic used for testing
 
 ### SET UP CUBED SPHERE GRID AND PROJECTION
-position, orientation = (0, 40), (1, -1)
+position, orientation = (0, 20), 45
 projection = CSprojection(position, orientation)
-grid = CSgrid(projection, 5000, 5000, 5., 10., R = 1000)
+grid = CSgrid(projection, 3000, 3000, 5., 10., R = 1000)
 shape = grid.lat.shape
 ph = grid.lon * np.pi / 180
 th = (90 - grid.lat) * np.pi / 180
-Lxi, Leta = grid.get_Le_Ln(S = 3, return_dxi_deta = True, return_sparse = True)
-Le, Ln = grid.get_Le_Ln(S = 3, return_sparse = True)
+Lxi, Leta = grid.get_Le_Ln(S = 1, return_dxi_deta = True, return_sparse = True)
+Le, Ln = grid.get_Le_Ln(S = 1, return_sparse = True)
 
 ###### CARTESIAN FUNCTION ################
 ##########################################

@@ -7,8 +7,7 @@
 
     This code only implements a grid on (part of) one side of the cube. The purpose
     is to use it for regional data analyses such as SECS, and potentially simple
-    modelling. The code uses the equations for the north pole side of the cube,
-    except for a reversal in signs of the cube coordinates xi, eta
+    modelling. The code uses the equations for the north pole side of the cube
 
     The grid and associated math is completely based on:
     C. Ronchi, R. Iacono, P.S. Paolucci, The “Cubed Sphere”: A New Method for the 
@@ -19,6 +18,7 @@
     KML, May 2020
     Updates:
     - June 2021: Made differentiation matrix sparse + arbitrary stencil
+    - October 2021: Fixed issue with xi and eta not going in expected direction
 """
 
 import numpy as np
@@ -43,15 +43,15 @@ class CSprojection(object):
             coordinate at which the cube surface should be 
             tangential to the sphere - the center of the projection.
             Pair of values for longitude and latitude [deg]
-        orientation: array (east, north)
-            orientation of the cube surface - a 2D vector defined by
-            its geocentric (east, north) components. This direction
-            defines the direction of constant xi (i.e. the eta axis) 
+        orientation: scalar
+            orientation of the cube surface - an angle in degrees, that
+            defines the the xi axis: orientation = 0 / 180  implies a xi axis in
+            the east-west direction, positive towards east / west. 
+            orientation = 90 / 270 impliex a xi axis towards north / south. 
         """
 
         self.position = np.array(position)
-        self.orientation = np.array(orientation)
-        self.orientation = self.orientation / np.linalg.norm(orientation) # normalize
+        self.orientation = orientation
 
         self.lon0, self.lat0 = position
 
@@ -61,10 +61,10 @@ class CSprojection(object):
                            np.sin(self.lat0 * d2r)])
 
         # the x axis is the orientation described in ECEF coords:
-        self.x = spherical.enu_to_ecef(np.array([self.orientation[0], self.orientation[1], 0]).reshape((1, 3)), np.array(self.lon0), np.array(self.lat0)).flatten()
+        self.y = spherical.enu_to_ecef(np.array([np.cos(orientation * d2r), np.sin(orientation * d2r), 0]).reshape((1, 3)), np.array(self.lon0), np.array(self.lat0)).flatten()
         
         # the y axis completes the system:
-        self.y = np.cross(self.z, self.x)
+        self.x = np.cross(self.y, self.z)
  
         # define rotation matrices for rotations between local and geocentric:
         self.R_geo2local = np.vstack((self.x, self.y, self.z)) # rotation matrix from GEO to rotated coords (ECEF)
@@ -87,16 +87,12 @@ class CSprojection(object):
         Returns
         -------
         xi: array
-            xi, as defined in Ronchi et al.(*), after lon, lat have been
+            xi, as defined in Ronchi et al, after lon, lat have been
             converted to local coordinates. Unit is radians [-pi/4, pi/4]
         eta: array
-            eta, as defined in Ronchi et al. (*), after lon, lat have been
+            eta, as defined in Ronchi et al., after lon, lat have been
             converted to local coordinates. Unit is radians [-pi/4, pi/4]
 
-        Note
-        ----
-        (*) the signs of xi and eta are reversed compared to Ronchi et al., 
-        so that eta is positive along self.orientation
         """
 
         lon, lat = np.array(lon), np.array(lat)
@@ -116,7 +112,8 @@ class CSprojection(object):
         ii = theta > np.pi/4
         xi [ii] = np.nan
         eta[ii] = np.nan
-        return -xi.reshape(shape), -eta.reshape(shape)
+
+        return xi.reshape(shape), eta.reshape(shape)
 
 
     def cube2geo(self, xi, eta):
@@ -135,19 +132,15 @@ class CSprojection(object):
         Returns
         -------
         xi: array
-            xi, as defined in Ronchi et al. (*), after lon, lat have been
+            xi, as defined in Ronchi et al., after lon, lat have been
             converted to local coordinates. Unit is radians [-pi/4, pi/4]
         eta: array
-            eta, as defined in Ronchi et al. (*), after lon, lat have been
+            eta, as defined in Ronchi et al., after lon, lat have been
             converted to local coordinates. Unit is radians [-pi/4, pi/4]
 
-        Note
-        ----
-        (*) the signs of xi and eta are reversed compared to Ronchi et al., 
-        so that eta is positive along self.orientation
 
         """
-        xi, eta = -np.array(xi), -np.array(eta)
+        xi, eta = np.array(xi), np.array(eta)
         shape = xi.shape
         xi, eta = xi.flatten(), eta.flatten()
 
@@ -502,11 +495,11 @@ class CSgrid(object):
         # make xi and eta arrays for the grid cell boundaries:
         if edges == None:
             if isinstance(Lres, int):
-                xi_edge  = np.linspace(-np.arctan(W/R)/2, np.arctan(W/R)/2, Lres + 1) - wshift/self.R
-                eta_edge = np.linspace(-np.arctan(L/R)/2, np.arctan(L/R)/2, Wres + 1) - wshift/self.R
+                xi_edge  = np.linspace(-np.arctan(L/R)/2, np.arctan(L/R)/2, Wres + 1) - wshift/self.R
+                eta_edge = np.linspace(-np.arctan(W/R)/2, np.arctan(W/R)/2, Lres + 1) - wshift/self.R
             else:
-                xi_edge  = np.r_[-np.arctan(W/R)/2:np.arctan(W/R)/2:np.arctan(Wres/(R))] - wshift/self.R
-                eta_edge = np.r_[-np.arctan(L/R)/2:np.arctan(L/R)/2:np.arctan(Lres/(R))] - wshift/self.R
+                xi_edge  = np.r_[-np.arctan(L/R)/2:np.arctan(L/R)/2:np.arctan(Lres/(R))] - wshift/self.R
+                eta_edge = np.r_[-np.arctan(W/R)/2:np.arctan(W/R)/2:np.arctan(Wres/(R))] - wshift/self.R
         else:
             xi_edge, eta_edge = edges
 
@@ -539,8 +532,8 @@ class CSgrid(object):
         self.phi, self.theta = self.lon * d2r, (90 - self.lat) * d2r
 
         # cubed square parameters for grid points (cell centers)
-        self.X = np.tan(-self.xi)
-        self.Y = np.tan(-self.eta)
+        self.X = np.tan(self.xi)
+        self.Y = np.tan(self.eta)
         self.delta = 1 + self.X**2 + self.Y**2
         self.C = np.sqrt(1 + self.X**2)
         self.D = np.sqrt(1 + self.Y**2)
@@ -828,9 +821,9 @@ class CSgrid(object):
 
         I = sparse.eye(self.size)
 
-        # equation 21 of Ronchi et al. (reverse sign since I use -xi, -eta)
-        L_xi = -(D_xi.multiply(D        ) + D_et.multiply(X * Y / D)) / self.R
-        L_et = -(D_xi.multiply(X * Y / C) + D_et.multiply(    C    )) / self.R
+        # equation 21 of Ronchi et al.
+        L_xi = (D_xi.multiply(D        ) + D_et.multiply(X * Y / D)) / self.R
+        L_et = (D_xi.multiply(X * Y / C) + D_et.multiply(    C    )) / self.R
         dd = np.sqrt(d - 1)
 
         # conversion from xi/eta to geocentric east/west is accomplished through the
