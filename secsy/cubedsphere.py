@@ -547,12 +547,12 @@ class CSgrid(object):
         """ string representation """
 
         th0, th1 = 2 * self.xi.max() / d2r, 2 * self.eta.max() / d2r
-        e, n = self.projection.orientation[0], self.projection.orientation[1]
+        orientation = self.projection.orientation
         lon, lat = self.projection.lon0, self.projection.lat0,
 
         return( ('{} x {} cubed sphere grid\n'.format(self.shape[0], self.shape[1]) +
                  'Centered at lon, lat = {:.1f}, {:.1f}\n'.format(lon, lat) +
-                 'Orientation: {:.2f} east, {:.2f} north\n'.format(e, n) +
+                 'Orientation: {:.2f} degrees\n'.format(orientation) +
                  'Extent: ~{:.1f} x {:.1f} degrees central angle'.format(th0, th1) ))
 
 
