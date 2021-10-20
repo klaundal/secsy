@@ -181,9 +181,6 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
             return -2*constant*np.log(np.sin(theta/2)).T
         elif current_type == 'scalar':
             return    constant      / np.tan(theta/2).T
-        
-
-
 
 
 def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
@@ -336,8 +333,8 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
         Ge_[below] *= 0 
 
         # calculate geo east, north, radial:
-        Ge = -Ge_ * enu_t[:, :, 1] # eastward component of enu_t is northward component of enu_e (unit vector in local east direction)
-        Gn =  Ge_ * enu_t[:, :, 0] # northward component of enu_t is eastward component of enu_e
+        Ge =  Ge_ * enu_t[:, :, 1] # eastward component of enu_t is northward component of enu_e (unit vector in local east direction)
+        Gn = -Ge_ * enu_t[:, :, 0] # northward component of enu_t is eastward component of enu_e
         Gr =  Ge_ * 0              # no radial component
 
 
