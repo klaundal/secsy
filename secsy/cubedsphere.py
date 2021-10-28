@@ -946,6 +946,6 @@ class CSgrid(object):
                             sparse.hstack((I.multiply(r10), I.multiply(r11)))))
 
         # combine the matrices so we get divergence of east/north
-        D = -L.dot(R.dot(RR) )
+        D = L.dot(R.dot(RR) )
         return D if return_sparse else np.array(D.todense())
 

@@ -92,7 +92,7 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
         The type of SECS function. This must be either 
         'divergence_free' (default): divergence-free basis functions
         'curl_free': curl-free basis functions
-        'potential': integral of curl-free SECS basis functions
+        'potential': scalar field whose negative gradient is curl-free SECS
         'scalar': 
     constant: float, optional
         The SECS functions are scaled by the factor 1/(4pi), which is
