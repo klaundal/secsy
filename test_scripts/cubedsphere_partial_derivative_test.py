@@ -4,16 +4,17 @@ Test numerical calculation of gradient components in cubed sphere coordinates
 import numpy as np
 from secsy import CSgrid, CSprojection
 import matplotlib.pyplot as plt
+d2r = np.pi / 180
 
 N, M = 4, 4 # SH degree and order of the spherical harmonic used for testing
 
 ### SET UP CUBED SPHERE GRID AND PROJECTION
-position, orientation = (0, 20), 45
+position, orientation = (50, 75), 45
 projection = CSprojection(position, orientation)
 grid = CSgrid(projection, 3000, 3000, 5., 10., R = 1000)
 shape = grid.lat.shape
-ph = grid.lon * np.pi / 180
-th = (90 - grid.lat) * np.pi / 180
+ph = grid.local_lon * np.pi / 180
+th = (90 - grid.local_lat) * np.pi / 180
 Lxi, Leta = grid.get_Le_Ln(S = 1, return_dxi_deta = True, return_sparse = True)
 Le, Ln = grid.get_Le_Ln(S = 1, return_sparse = True)
 
@@ -44,6 +45,12 @@ ax_sc.plot(ax_sc.get_xlim(), ax_sc.get_xlim())
 
 
 ####### SPHERICAL FUNCTION ###############
+## I'm defining the spherical function in local 
+## coords, so the gradient calculation is also 
+## done in local coords before rotating into global
+## for comparison with output from the numerical
+## differentiation. 
+## (It looks weird but it's supposed to)
 ##########################################
 P = np.cos(N * 2 * th) - 1
 dP = -N * 2 * np.sin(N * 2 * th)
@@ -52,8 +59,16 @@ Y     = P  * (np.cos(M * ph) + np.sin(M * ph))
 dYdth = dP * (np.cos(M * ph) + np.sin(M * ph))
 dYdph = P * M * (np.cos(M * ph) - np.sin(M * ph))
 
-gradY_e =  dYdph / np.sin(th) / grid.R
-gradY_n = -dYdth              / grid.R
+gradY_e_local =  dYdph / np.sin(th) / grid.R
+gradY_n_local = -dYdth              / grid.R
+grad_local = np.vstack((gradY_e_local.flatten(), gradY_n_local.flatten()))
+
+# function is defined in local coords, but we want the gradient in global. So rotate:
+R = grid.projection.local2geo_enu_rotation(ph.flatten() / d2r, 90 - th.flatten() / d2r)
+
+gradY_e, gradY_n = map(lambda x: x.reshape(grid.shape), np.einsum('nij, nj->ni', R, grad_local.T).T )
+#gradY_e, gradY_n = gradY_e.reshape(grid.shape), gradY_n.reshape(grid.shape)
+
 
 ### PLOT THE COMPARISON
 fig = plt.figure(figsize = (15,10))
