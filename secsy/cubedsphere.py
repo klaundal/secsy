@@ -580,6 +580,30 @@ class CSgrid(object):
             return np.ravel_multi_index((i, j), (self.NL, self.NW)).flatten()
         except:
             print('invalid index?', i, j, self.NL, self.NW)
+            
+            
+    def _index2d(self, index1d):
+        '''
+        Calculate 2d indices from the input 1D index.
+        Inverse of _index() function.
+
+        Added 2021-11-02 by JPR
+
+        Parammeters
+        -----------
+        index1d: array-like (int) of length N of 1d indices to be represented
+            by the 2D ij indices
+
+        Returns
+        -------
+        Two 1D arrays, first containing the i indices, second the j indices
+        Same length (N) as input parameter.
+
+        '''
+        i = index1d // self.shape[0]
+        j = index1d % self.shape[1]
+
+        return i, j            
 
 
     def count(self, lon, lat, **kwargs):
