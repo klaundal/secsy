@@ -600,7 +600,7 @@ class CSgrid(object):
         Same length (N) as input parameter.
 
         '''
-        i = index1d // self.shape[0]
+        i = index1d // self.shape[1]
         j = index1d % self.shape[1]
 
         return i, j            
