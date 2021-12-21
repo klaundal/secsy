@@ -551,6 +551,10 @@ class CSgrid(object):
         self.size = self.lat.size
         self.shape = self.lat.shape
 
+        # calcualte cell area
+        self.A = self.projection.differentials(self.xi , self.eta, self.dxi, self.deta, R = self.R)[2]
+
+
 
     def __repr__(self):
         """ string representation """
