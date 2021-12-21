@@ -43,15 +43,24 @@ class CSprojection(object):
             coordinate at which the cube surface should be 
             tangential to the sphere - the center of the projection.
             Pair of values for longitude and latitude [deg]
-        orientation: scalar
-            orientation of the cube surface - an angle in degrees, that
-            defines the the xi axis: orientation = 0 / 180  implies a xi axis in
-            the east-west direction, positive towards east / west. 
+        orientation: scalar or 2-element array-like
+            orientation of the cube surface.
+            if scalar: angle in degrees, that defines the the xi axis: orientation = 0 / 180  
+            implies a xi axis in the east-west direction, positive towards east / west. 
             orientation = 90 / 270 impliex a xi axis towards north / south. 
+            if 2-element array-like: The elements denote the eastward and northward components
+            of a vector that is aligned with the xi axis. 
         """
 
         self.position = np.array(position)
-        self.orientation = orientation
+        self.orientation = np.array(orientation)
+
+        if self.orientation.size == 2: # interpreted as a east, north component:
+            self.orientation = self.orientation / np.linalg.norm(self.orientation)
+            v = np.array([self.orientation[0], self.orientation[1], 0]).reshape((1, 3))
+        else: # interpreted as scalar
+            assert self.orientation.size == 1, 'orientation must be either scalar or have 2 elements'
+            v = np.array([np.cos(orientation * d2r), np.sin(orientation * d2r), 0]).reshape((1, 3))
 
         self.lon0, self.lat0 = position
 
@@ -61,7 +70,7 @@ class CSprojection(object):
                            np.sin(self.lat0 * d2r)])
 
         # the x axis is the orientation described in ECEF coords:
-        self.y = spherical.enu_to_ecef(np.array([np.cos(orientation * d2r), np.sin(orientation * d2r), 0]).reshape((1, 3)), np.array(self.lon0), np.array(self.lat0)).flatten()
+        self.y = spherical.enu_to_ecef(v, np.array(self.lon0), np.array(self.lat0)).flatten()
         
         # the y axis completes the system:
         self.x = np.cross(self.y, self.z)
