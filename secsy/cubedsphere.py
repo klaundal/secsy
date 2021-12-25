@@ -847,7 +847,7 @@ class CSgrid(object):
             if return_sparse:
                 return D_xi, D_et
             else:
-                return D_xi.todense(), D_et.todense()
+                return np.array(D_xi.todense()), np.array(D_et.todense())
 
         # convert to gradient compnents
         X = self.X.flatten().reshape((1, -1))
