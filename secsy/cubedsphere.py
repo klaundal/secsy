@@ -57,10 +57,10 @@ class CSprojection(object):
 
         if self.orientation.size == 2: # interpreted as a east, north component:
             self.orientation = self.orientation / np.linalg.norm(self.orientation)
-            v = np.array([self.orientation[0], self.orientation[1], 0]).reshape((1, 3))
+            self.orientation = np.array([self.orientation[0], self.orientation[1], 0]).reshape((1, 3))
         else: # interpreted as scalar
             assert self.orientation.size == 1, 'orientation must be either scalar or have 2 elements'
-            v = np.array([np.cos(orientation * d2r), np.sin(orientation * d2r), 0]).reshape((1, 3))
+            self.orientation = np.array([np.cos(orientation * d2r), np.sin(orientation * d2r), 0]).reshape((1, 3))
 
         self.lon0, self.lat0 = position
 
@@ -70,7 +70,7 @@ class CSprojection(object):
                            np.sin(self.lat0 * d2r)])
 
         # the x axis is the orientation described in ECEF coords:
-        self.y = spherical.enu_to_ecef(v, np.array(self.lon0), np.array(self.lat0)).flatten()
+        self.y = spherical.enu_to_ecef(self.orientation, np.array(self.lon0), np.array(self.lat0)).flatten()
         
         # the y axis completes the system:
         self.x = np.cross(self.y, self.z)
@@ -560,12 +560,12 @@ class CSgrid(object):
         """ string representation """
 
         th0, th1 = 2 * self.xi.max() / d2r, 2 * self.eta.max() / d2r
-        orientation = self.projection.orientation
+        orientation = self.projection.orientation.flatten()[:2] # east, north components
         lon, lat = self.projection.lon0, self.projection.lat0,
 
         return( ('{} x {} cubed sphere grid\n'.format(self.shape[0], self.shape[1]) +
                  'Centered at lon, lat = {:.1f}, {:.1f}\n'.format(lon, lat) +
-                 'Orientation: {:.2f} degrees\n'.format(orientation) +
+                 'Orientation: {:.2f} east, {:.2f} north, \n'.format(orientation[0], orientation[1]) +
                  'Extent: ~{:.1f} x {:.1f} degrees central angle'.format(th0, th1) ))
 
 
