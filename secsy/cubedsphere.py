@@ -22,7 +22,7 @@
 """
 
 import numpy as np
-from secsy import spherical, diffutils
+from ..secsy import spherical, diffutils
 import cartopy.io.shapereader as shpreader
 from scipy import sparse
 d2r = np.pi / 180
