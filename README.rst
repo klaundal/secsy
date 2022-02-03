@@ -31,7 +31,8 @@ If the secsy folder is somewhere Python knows about (for example your working di
 References
 ==========
 Here is the reference for Cubed Sphere projections:
-C. Ronchi, R. Iacono, P.S. Paolucci, The “Cubed Sphere”: A New Method for the Solution of Partial Differential Equations in Spherical Geometry, Journal of Computational Physics, Volume 124, Issue 1, 1996, Pages 93-114, ISSN 0021-9991, https://doi.org/10.1006/jcph.1996.0047.
+    C. Ronchi, R. Iacono, P.S. Paolucci, The “Cubed Sphere”: A New Method for the Solution of Partial Differential Equations in Spherical Geometry, Journal of Computational Physics, Volume 124, Issue 1, 1996, Pages 93-114, ISSN 0021-9991, https://doi.org/10.1006/jcph.1996.0047.
+
 
 Here is a good reference for SECS analysis: 
-Vanhamäki H., Juusola L. (2020) Introduction to Spherical Elementary Current Systems. In: Dunlop M., Lühr H. (eds) Ionospheric Multi-Spacecraft Analysis Tools. ISSI Scientific Report Series, vol 17. Springer, Cham. https://doi.org/10.1007/978-3-030-26732-2_2
+    Vanhamäki H., Juusola L. (2020) Introduction to Spherical Elementary Current Systems. In: Dunlop M., Lühr H. (eds) Ionospheric Multi-Spacecraft Analysis Tools. ISSI Scientific Report Series, vol 17. Springer, Cham. https://doi.org/10.1007/978-3-030-26732-2_2
