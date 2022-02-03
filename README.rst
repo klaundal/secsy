@@ -1,5 +1,8 @@
 secsy Overview
 ==============
+.. image:: https://zenodo.org/badge/257848052.svg
+   :target: https://zenodo.org/badge/latestdoi/257848052
+
 **A Python module for working with Spherical Elementary Current Systems (SECS) and cubed sphere projections**. If and only if those words made sense to you, you may find this module useful. Here are some main features:
 
 - ``get_SECS_J_G_matrices``: Function that calculate matrices that relate SECS amplitudes and current densities (curl-free or divergence-free), with optional correction for singularities at the poles
