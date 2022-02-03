@@ -4,7 +4,7 @@ secsy Overview
 
 - ``get_SECS_J_G_matrices``: Function that calculate matrices that relate SECS amplitudes and current densities (curl-free or divergence-free), with optional correction for singularities at the poles
 - ``get_SECS_B_G_matrices``: Function that calculates matrices that relate SECS amplitudes and magnetic fields
-- ``CSprojection``: Class that sets up a cubed sphere projection, with a single cube phase centered on an arbitrary longitude and latitude, and with an arbitrary orientation
+- ``CSprojection``: Class that sets up a cubed sphere projection, with a single cube face centered on an arbitrary longitude and latitude, and with an arbitrary orientation
 - ``CSgrid``: Class that sets up a grid with a given projection, resolution, and extent. The class contains functions that make differentiation matrices that take into account distortion effects. 
 
 Check doc strings for more information, or look at the example notebook. Or get in touch.
