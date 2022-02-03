@@ -1,6 +1,6 @@
-Overview
-========
-secsy - a Python module for working with Spherical Elementary Current Systems (SECS) and cubed sphere projection. If and only if those words made sense to you, you may find this module useful. Here are some main features:
+secsy Overview
+==============
+**A Python module for working with Spherical Elementary Current Systems (SECS) and cubed sphere projections**. If and only if those words made sense to you, you may find this module useful. Here are some main features:
 
 - ``get_SECS_J_G_matrices``: Function that calculate matrices that relate SECS amplitudes and current densities (curl-free or divergence-free), with optional correction for singularities at the poles
 - ``get_SECS_B_G_matrices``: Function that calculates matrices that relate SECS amplitudes and magnetic fields
@@ -31,7 +31,7 @@ If the secsy folder is somewhere Python knows about (for example your working di
 References
 ==========
 Here is the reference for Cubed Sphere projections:
-    C. Ronchi, R. Iacono, P.S. Paolucci, The “Cubed Sphere”: A New Method for the Solution of Partial Differential Equations in Spherical Geometry, Journal of Computational Physics, Volume 124, Issue 1, 1996, Pages 93-114, ISSN 0021-9991, https://doi.org/10.1006/jcph.1996.0047.
+    Ronchi C., Iacono R., Paolucci, P.S., The “Cubed Sphere”: A New Method for the Solution of Partial Differential Equations in Spherical Geometry, Journal of Computational Physics, Volume 124, Issue 1, 1996, Pages 93-114, ISSN 0021-9991, https://doi.org/10.1006/jcph.1996.0047.
 
 
 Here is a good reference for SECS analysis: 
