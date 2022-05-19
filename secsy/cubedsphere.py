@@ -284,9 +284,9 @@ class CSprojection(object):
         R_enulocal2enugeo  = np.einsum('nij, njk -> nik', R_ecefgeo2enugeo, R_enulocal2ecefgeo)
 
         # the result should describe a 2D rotation matrix:
-        assert np.all( np.isclose(R_enulocal2enugeo[:, 2, 2], 1, atol = 1e-7 ))
-        assert np.all( np.isclose(R_enulocal2enugeo[:, 2, np.array([0, 1])], 0, atol = 1e-7 ))
-        assert np.all( np.isclose(R_enulocal2enugeo[:, np.array([0, 1]), 2], 0, atol = 1e-7 ))
+        assert np.all( np.isclose(R_enulocal2enugeo[:, 2, 2], 1, atol = 1e-6 ))
+        assert np.all( np.isclose(R_enulocal2enugeo[:, 2, np.array([0, 1])], 0, atol = 1e-6 ))
+        assert np.all( np.isclose(R_enulocal2enugeo[:, np.array([0, 1]), 2], 0, atol = 1e-6 ))
         return R_enulocal2enugeo[:, :2, :2] # (N, 2, 2)
 
 
