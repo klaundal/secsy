@@ -23,9 +23,12 @@
 
 import numpy as np
 from ..secsy import spherical, diffutils
-import cartopy.io.shapereader as shpreader
 from scipy import sparse
+import os
 d2r = np.pi / 180
+
+datapath = os.path.dirname(os.path.abspath(__file__)) + '/../data/'
+
 
 class CSprojection(object):
     def __init__(self, position, orientation):
@@ -366,31 +369,13 @@ class CSprojection(object):
 
 
 
-    def get_projected_coastlines(self, **kwargs):
+    def get_projected_coastlines(self, resolution = '50m'):
         """ generate coastlines in projected coordinates """
 
-        if 'resolution' not in kwargs.keys():
-            kwargs['resolution'] = '50m'
-        if 'category' not in kwargs.keys():
-            kwargs['category'] = 'physical'
-        if 'name' not in kwargs.keys():
-            kwargs['name'] = 'coastline'
-
-        shpfilename = shpreader.natural_earth(**kwargs)
-        reader = shpreader.Reader(shpfilename)
-        coastlines = reader.records()
-        multilinestrings = []
-        for coastline in coastlines:
-            if coastline.geometry.geom_type == 'MultiLineString':
-                multilinestrings.append(coastline.geometry)
-                continue
-            lon, lat = np.array(coastline.geometry.coords[:]).T 
+        coastlines = np.load(datapath + 'coastlines_' + resolution + '.npz')
+        for key in coastlines:
+            lat, lon = coastlines[key]
             yield self.geo2cube(lon, lat)
-
-        for mls in multilinestrings:
-            for ls in mls:
-                lon, lat = np.array(ls.coords[:]).T 
-                yield self.geo2cube(lon, lat)
 
 
     def differentials(self, xi, eta, dxi, deta, R = 1):
