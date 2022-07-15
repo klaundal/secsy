@@ -278,6 +278,7 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
     # unit vector pointing from SECS to data points - (M, N, 3) 
     ecef_t = ecef_r_secs[np.newaxis, :, :] - ecef_r_data[:, np.newaxis, :] # difference vector - not tangential yet
     ecef_t = ecef_t - np.einsum('ijk,ik->ij', ecef_t, ecef_r_data)[:, :, np.newaxis] * ecef_r_data[:, np.newaxis, :] # subtract radial part of the vector to make it tangential
+    np.seterr(invalid='ignore', divide='ignore')
     ecef_t = ecef_t/np.linalg.norm(ecef_t, axis = 2)[:, :, np.newaxis] # normalize the result
         
     # make N rotation matrices to rotate ecef_t to enu_t - one rotation matrix per SECS:
