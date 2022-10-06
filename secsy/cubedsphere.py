@@ -688,10 +688,11 @@ class CSgrid(object):
         lat: array
             array of latitudes [degrees] - must have same shape as lon
         ext_factor: float or int, optional
-            Set ext_factor to a positive float to extend/contract self.L and 
-            self.W by the given factor to include include/exclude points that are
-            outside/inside the grid. If provided as positiev/negative int, it 
-            will extend/contract the region as multiples of the grid spacing.
+            Set ext_factor to a positive/negative float to extend/contract 
+            self.L and self.W by the given factor to include include/exclude 
+            points that are outside/inside the grid. If provided as 
+            positive/negative int, it will extend/contract the region as 
+            multiples of the grid spacing.
 
         Returns
         -------
