@@ -687,10 +687,12 @@ class CSgrid(object):
             array of longitudes [degrees] - must have same shape as lat
         lat: array
             array of latitudes [degrees] - must have same shape as lon
-        ext_factor: float, optional
-            Set ext_factor to a number > 1 to extend self.L and self.W
-            by the given factor to include include points that are
-            outside the grid        
+        ext_factor: float or int, optional
+            Set ext_factor to a positive/negative float to extend/contract 
+            self.L and self.W by the given factor to include include/exclude 
+            points that are outside/inside the grid. If provided as 
+            positive/negative int, it will extend/contract the region as 
+            multiples of the grid spacing.
 
         Returns
         -------
@@ -704,8 +706,12 @@ class CSgrid(object):
         lon, lat = lon.flatten(), lat.flatten()
 
         xi, eta = self.projection.geo2cube(lon, lat)
-        ximin , ximax  = self.xi_mesh.min()  * ext_factor, self.xi_mesh.max()  * ext_factor
-        etamin, etamax = self.eta_mesh.min() * ext_factor, self.eta_mesh.max() * ext_factor
+        if isinstance(ext_factor, int):
+            ximin , ximax  = self.xi_mesh.min()  - ext_factor * self.dxi, self.xi_mesh.max() + ext_factor * self.dxi
+            etamin, etamax = self.eta_mesh.min() - ext_factor * self.deta, self.eta_mesh.max() + ext_factor * self.deta
+        else:
+            ximin , ximax  = self.xi_mesh.min()  * ext_factor, self.xi_mesh.max()  * ext_factor
+            etamin, etamax = self.eta_mesh.min() * ext_factor, self.eta_mesh.max() * ext_factor
 
         return ((xi < ximax) & (xi > ximin) & (eta < etamax) & (eta > etamin)).reshape(shape)
 
