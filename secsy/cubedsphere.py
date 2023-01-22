@@ -707,7 +707,7 @@ class CSgrid(object):
         shape = lon.shape
         lon, lat = lon.flatten(), lat.flatten()
 
-        xi, eta = self.projection.geo2cube(lon, lat)
+        xi, eta = self.projection.geo2cube(lon, lat, set_points_off_cube_to_nan = False)
         if isinstance(ext_factor, int):
             ximin , ximax  = self.xi_mesh.min()  - ext_factor * self.dxi, self.xi_mesh.max() + ext_factor * self.dxi
             etamin, etamax = self.eta_mesh.min() - ext_factor * self.deta, self.eta_mesh.max() + ext_factor * self.deta
