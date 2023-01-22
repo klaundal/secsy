@@ -4,6 +4,7 @@ SECS utils
 """
 
 import numpy as np
+from .spherical import enu_to_ecef
 d2r = np.pi/180
 MU0 = 4 * np.pi * 1e-7
 RE = 6371.2 * 1e3
@@ -356,4 +357,199 @@ def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
     return Ge, Gn, Gr
 
 
+def get_wedge_G_matrix(lat, lon, r, lat_I, lon_I, r_I, Ie, In, Ir, calculate_radial_leg = True):
+    """ Calculate matrices that map between the magnetic field components
+        and the magnitudes of current wedges that consist of radial semi-infinite 
+        line currents connected to another semi-infinite line current with 
+        orientations and connection points specified in spherical coordinates
+
+    This is useful for making a correction to the magnetic field of curl-free (CF)
+    SECS for inclined magnetic field lines. The magnetic field of CF SECS with 
+    inclined field lines can be expressed as the sum of the standard system with
+    radial field lines and the magnetic field of a wedge calculated with this function. 
+
+    Parameters
+    ----------
+    lat : array (size N or 1)
+        latitudes of evaluation points [deg]
+    lon : array (size N or 1)
+        longitudes of evaluation points [deg]
+    r : array (size N or 1)
+        radii of evaluation points [m, unless other unit is consistently used]
+    lat_I : array (size K or 1)
+        latitudes of the wedge connection points [deg]
+    lon_I : array (size K or 1)
+        longitudes of the wedge connection points [deg]
+    r_I : array (size K or 1)
+        radii of of wedge connection points [same unit as r]
+    Ie : array (size K or 1)
+        eastward components of vectors along non-radial wedge legs
+    In : array (size K or 1)
+        eastward components of vectors along non-radial wedge legs
+    Ir : array (size K or 1)
+        radial components of vectors along non-radial wedge legs
+    calculate_radial_leg : bool, default True
+        used to determine if the magnetic field of a radial leg of the current
+        wedge should be calculated in recursive call to the function. 
+
+    Returns
+    -------
+    Ge : array (N X K)
+        2D array that maps current magnitudes, I, to eastward magnetic fields, Be, such that
+        Be = Ge.dot(I), where I is given in Ampere and Be in T
+    Gn : array (N X K)
+        2D array that maps current magnitudes, I, to northward magnetic fields, Bn, such that
+        Be = Gn.dot(I), where I is given in Ampere and Bn in T
+    Gr : array (N X K)
+        2D array that maps current magnitudes, I, to radial magnetic fields, Br, such that
+        Be = Gr.dot(I), where I is given in Ampere and Br in T
+
+    Note
+    ----
+    The output of this function can be used in combination with get_SECS_B_G_matrices for curl-free
+    currents to correct for the effect of inclined field lines. See get_CF_SECS_B_G_matrices_for_inclined_field().
+
+    This is only a first-order correction, since it approximates the field line as an infinite straight line. 
+    It should give an improvement at mid latitudes but it's not suitable at low latitudes. See work by 
+    Heikki Vanhamäki for better ways to handle this. 
+
+    Calculations are based on analytical expressions (see e.g., Fig 5.19 in Griffiths)
+    """
+
+    # turn input into arrays
+    eval_coords = tuple( map(np.array, [lat, lon, r] ) )
+    current_params = tuple( map(np.array, [lat_I, lon_I, r_I, Ie, In, Ir] ) )
+
+    # turn intput into flattened arrays
+    eval_coords_shape    = np.broadcast(*eval_coords).shape
+    current_params_shape = np.broadcast(*current_params).shape
+    eval_coords    = [np.ravel(_.reshape(eval_coords_shape   )) for _ in eval_coords]
+    current_params = [np.ravel(_.reshape(current_params_shape)) for _ in current_params]
+
+    N = eval_coords[0].size
+    K = current_params[0].size
+
+    # Construct 3 x N array, r_ecef, of N vectors pointing at evaluation points (ECEF)
+    ph, th, rr = np.deg2rad(eval_coords[1]), np.deg2rad(90 - eval_coords[0]), eval_coords[2]
+    r_ecef = rr * np.vstack((np.cos(ph) * np.sin(th), np.sin(ph) * np.sin(th), np.cos(th)))
+
+    # Construct 3 x K array, s_ecef, of K vectors pointing at wedge intersection (ECEF)
+    ph_I, th_I, r_I = np.deg2rad(current_params[1]), np.deg2rad(90 - current_params[0]), current_params[2]
+    s_ecef = r_I * np.vstack((np.cos(ph_I) * np.sin(th_I), np.sin(ph_I) * np.sin(th_I), np.cos(th_I)))
+
+    # Construct 3 x K array, j, of K unit vectors upward along the inclined leg of the current wedge (ECEF)
+    j_enu  = np.vstack((current_params[3], current_params[4], current_params[5]))
+    j_enu  = j_enu / np.linalg.norm(j_enu, axis = 0) # normalize
+    signs = np.sign(j_enu[2])
+    j_enu *= signs.reshape((1, -1)) # turn vectors upward if they point down
+    j_ecef = enu_to_ecef(j_enu.T, current_params[1], current_params[0]).T
+
+    # Find the lengths along j (from s) that are closest to evaluation points (N x K)
+    t = np.einsum('in, ik -> nk', r_ecef, j_ecef) - np.sum(s_ecef * j_ecef, axis = 0).reshape((1, K))
+
+    # Find vectors pointing at evaluation points from the closest point along j (3 x N x K):
+    px = r_ecef[0].reshape((N, 1)) - s_ecef[0].reshape((1, K)) - j_ecef[0] * t
+    py = r_ecef[1].reshape((N, 1)) - s_ecef[1].reshape((1, K)) - j_ecef[1] * t
+    pz = r_ecef[2].reshape((N, 1)) - s_ecef[2].reshape((1, K)) - j_ecef[2] * t
+    p_ecef = np.stack((px, py, pz))
+
+    # Find distances between evaluation points and closest poinst along j (N X K):
+    d = np.sqrt(px**2 + py**2 + pz**2)
+
+    # normalized versions of p_ecef vectors:
+    pp_ecef = p_ecef / d.reshape((1, N, K)) 
+
+    # the magnetic field direction of inclined current line is pp_ecef cross j_ecef (3 x N x K array):
+    eBx = pp_ecef[1] * j_ecef[2] - pp_ecef[2] * j_ecef[1] # cross product x component
+    eBy = pp_ecef[2] * j_ecef[0] - pp_ecef[0] * j_ecef[2] # y component
+    eBz = pp_ecef[0] * j_ecef[1] - pp_ecef[1] * j_ecef[0] # z component
+    eB  = np.stack((eBx, eBy, eBz))            # 3 x N x K array with stacked components
+    assert np.allclose(np.linalg.norm(eB, axis = 0), 1)
+
+    # angle between the vectors p and and the vectors pointing from evaluation points to base (N x K)
+    theta_1 = np.arctan(-t / d) # theta_1 in Griffiths fig 5.19 (theta_2 = pi/2 in our case)
+
+    # magnetic field scaling factor (N x K):
+    B_scale = MU0 / (4 * np.pi * d) * (1 - np.sin(theta_1))
+    B_scale = B_scale.reshape((1, N, K))
+
+    # (3 x N x K) array that map current magnitudes to ECEF components of the magnetic field:
+    G_ecef = B_scale * eB
+
+    # convert GB_ecef to enu - three matrices that are N x K:
+    ph, th = ph.reshape((N, 1)), th.reshape((N, 1))
+    G_e = -np.sin(ph)              * G_ecef[0] + np.cos(ph)              * G_ecef[1]
+    G_n = -np.cos(th) * np.cos(ph) * G_ecef[0] - np.cos(th) * np.sin(ph) * G_ecef[1] + np.sin(th) * G_ecef[2]
+    G_r =  np.sin(th) * np.cos(ph) * G_ecef[0] + np.sin(th) * np.sin(ph) * G_ecef[1] + np.cos(th) * G_ecef[2]
+
+    if calculate_radial_leg:
+        G_e_r, G_n_r, G_r_r = get_wedge_G_matrix(lat, lon, r, lat_I, lon_I, r_I, Ie*0, In*0, Ir, calculate_radial_leg = False)
+        G_e, G_n, G_r = G_e - G_e_r, G_n - G_n_r, G_r - G_r_r
+
+    return G_e, G_n, G_r
+
+
+def get_CF_SECS_B_G_matrices_for_inclined_field(lat, lon, r, lat_secs, lon_secs, Be, Bn, Br, RI = RE + 110 * 1e3):
+    """ Calculate matrix G that maps between CF SECS amplitudes and magnetic field, for inclined
+        magnetic field lines. The magnetic field lines are modeled as semi-infinite lines, but with
+        this function they are *not* assumed to be radial
+
+
+    This function combines the standard SECS magnetic field, from get_SECS_B_G_matrices with the magnetic field
+    of a current wedge that consists of two semi-inifinite field lines, calculated with get_wedge_G_matrix.
+
+    Note
+    ----
+    This function does not (yet) support the singularity fix used in get_SECS_B_G_matrices, so be careful when
+    evaluating the magnetic field close to either the radial or the inclined current lines
+
+    Parameters
+    ----------
+    lat: array-like
+        Array of latitudes of evaluation points [deg]
+        Flattened array must have same size as lon
+    lon: array-like
+        Array of longitudes of evaluation points [deg].
+        Flattened array must have same size as lat
+    r: array-like
+        Array of radii of evaluation points. Flattened
+        array must either have size 1, in which case one
+        radius is used for all points, or have same size as 
+        lat. Unit should be the same as RI 
+    lat_secs: array-like
+        Array of SECS pole latitudes [deg]
+        Flattened array must have same size as lon_secs
+    lon_secs: array-like
+        Array of SECS pole longitudes [deg]
+        Flattened array must havef same size as lat_secs
+    Be: array-like
+        Array of main magnetic field eastward component at SECS pole
+        locations. Same size as lat_secs
+    Bn: array-like
+        Array of main magnetic field northward component at SECS pole
+        locations. Same size as lat_secs
+    Br: array-like
+        Array of main magnetic field radial component at SECS pole
+        locations. Same size as lat_secs
+    RI: float (optional)
+        Radius of SECS poles. Default is Earth radius + 110,000 m
+
+    Returns
+    -------
+    Ge: 2D array
+        2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
+        m to the eastward magnetic field at (lat, lon) via 'Be = Ge.dot(m)'
+    Gn: 2D array
+        2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
+        m to the northward magnetic field at (lat, lon) via 'Bn = Gn.dot(m)'
+    Gr: 2D array
+        2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
+        m to the radial magnetic field at (lat, lon) via 'Br = Gr.dot(m)'
+    """
+
+    Ge_wedge, Gn_wedge, Gr_wedge = get_wedge_G_matrix(lat, lon, r, lat_secs, lon_secs, np.full_like(lat_secs, RI), Be, Bn, Br, calculate_radial_leg = True)
+    Ge, Gn, Gr = get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs, RI = RI, current_type = 'curl_free')
+
+
+    return Ge + Ge_wedge, Gn + Gn_wedge, Gr + Gr_wedge
 
