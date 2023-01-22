@@ -132,5 +132,9 @@ dmypy.json
 # mac stuff
 .DS_Store
 
+# figure folder content
+test_scripts/figures/*
+
 # testing
 testing/
+tmp/
