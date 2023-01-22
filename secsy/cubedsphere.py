@@ -665,7 +665,7 @@ class CSgrid(object):
         """
 
         lon, lat = lon.flatten(), lat.flatten()
-        xi, eta = self.projection.geo2cube(lon, lat)
+        xi, eta = self.projection.geo2cube(lon, lat, set_points_off_cube_to_nan = False)
 
         xi_edges, eta_edges = self.xi_mesh[0, :], self.eta_mesh[:, 0]
 
