@@ -44,6 +44,6 @@ def get_projected_coastlines(**kwargs):
             yield lat, lon
 
 
-for res in ['50m', '110m']:
+for res in ['10m', '50m', '110m']:
     coords = [np.vstack(c) for c in get_projected_coastlines(resolution = res)]
     np.savez('../data/coastlines_' + res + '.npz', *coords)
