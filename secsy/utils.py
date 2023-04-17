@@ -184,6 +184,132 @@ def get_SECS_J_G_matrices(lat, lon, lat_secs, lon_secs,
             return    constant      / np.tan(theta/2).T
 
 
+def get_Nakano_cf_G_matrices(lat, lon, lat_secs, lon_secs, 
+                             current_type = 'curl_free', 
+                             constant = 1./(4*np.pi), 
+                             eta = 131.4,
+                             RI = RE + 110 * 1e3):
+    """ Calculate matrices Ge and Gn which relate SECS amplitudes to current density 
+        vector components.
+
+    Parameters
+    ----------
+    lat: array-like
+        Array of latitudes of evaluation points [deg]
+        Flattened array must have same size as lon
+    lon: array-like
+        Array of longitudes of evaluation points [deg].
+        Flattened array must have same size as lat
+    lat_secs: array-like
+        Array of SECS pole latitudes [deg]
+        Flattened array must have same size as lon_secs
+    lon_secs: array-like
+        Array of SECS pole longitudes [deg]
+        Flattened array must havef same size as lat_secs
+    current_type: string, optional
+        The type of SECS function. This must be either 
+        'divergence_free' (default): divergence-free basis functions
+        'curl_free': curl-free basis functions
+        'potential': scalar field whose negative gradient is curl-free SECS
+        'scalar': 
+    eta: float
+        Analogous to 1/variance of a typical Gaussian distribution:
+        Whereas the width of a Gaussian increases with increasing variance,
+        the width of the spherical Gaussian _decreases_ with increasing eta.
+        The default value used in Fig 1 of Nakano et al (2020) is 131.4.
+    constant: float, optional
+        The SECS functions are scaled by the factor 1/(4pi), which is
+        the default value of 'constant'. Change if you want something 
+        different.
+    RI: float (optional)
+        Radius of SECS poles. Default is Earth radius + 110,000 m
+
+    Returns
+    -------
+    If current_type is 'divergence_free' or 'curl_free':
+    Ge: 2D array
+        2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
+        m to the eastward current densities at (lat, lon) via 'je = Ge.dot(m)'
+    Gn: 2D array
+        2D array with shape (lat.size, lat_secs.size), relating SECS amplitudes
+        m to the northward current densities at (lat, lon) via 'jn = Gn.dot(m)'
+    If current_type is 'potential' or 'scalar':
+    G: 2D array
+        2D array with shape (lat.size, lat_secs.size), relating amplitudes m
+        to scalar field magnitude at (lat, lon) via 'z = G.dot(m)'
+
+    """
+    
+    # reshape angles and convert to radians:
+    la   = np.array(lat).flatten()[:, np.newaxis] * d2r
+    lo   = np.array(lon).flatten()[:, np.newaxis] * d2r
+    la_s = np.array(lat_secs).flatten()[np.newaxis, :] * d2r
+    lo_s = np.array(lon_secs).flatten()[np.newaxis, :] * d2r
+
+    # ECEF position vectors of data points - should be N by 3, where N is number of data points
+    ecef_r_data = np.hstack((np.cos(la  ) * np.cos(lo  ), np.cos(la  ) * np.sin(lo  ), np.sin(la  )))
+    
+    # position vectors SECS poles - should be 3 by M, where M is number of SECS - these are the z axes of each SECS 
+    ecef_r_secs = np.vstack((np.cos(la_s) * np.cos(lo_s), np.cos(la_s) * np.sin(lo_s), np.sin(la_s))).T
+    
+    # unit vector pointing from SECS to data points - (M, N, 3) 
+    ecef_t = ecef_r_secs[np.newaxis, :, :] - ecef_r_data[:, np.newaxis, :] # difference vector - not tangential yet
+    ecef_t = ecef_t - np.einsum('ijk,ik->ij', ecef_t, ecef_r_data)[:, :, np.newaxis] * ecef_r_data[:, np.newaxis, :] # subtract radial part of the vector to make it tangential
+    ecef_t = ecef_t/np.linalg.norm(ecef_t, axis = 2)[:, :, np.newaxis] # normalize the result
+        
+    # make N rotation matrices to rotate ecef_t to enu_t - one rotation matrix per SECS:
+    R = np.hstack( (np.dstack((-np.sin(lo)              ,  np.cos(lo)             , np.zeros_like(la) )),
+                    np.dstack((-np.cos(lo)  * np.sin(la), -np.sin(lo) * np.sin(la), np.cos(       la) )),
+                    np.dstack(( np.cos(lo)  * np.cos(la),  np.sin(lo) * np.cos(la), np.sin(       la) ))) )
+
+    # apply rotation matrices to make enu vectors pointing from data points to SECS
+    enu_t = np.einsum('lij, lkj->lki', R, ecef_t)[:, :, :-1] # remove last component (up), which should deviate from zero only by machine precicion
+    
+    # if current_type == 'divergence_free':
+    #     # rotate these vectors to get vectors pointing eastward with respect to SECS systems at each data point
+    #     enu_vec = np.dstack((enu_t[:, :, 1], -enu_t[:, :, 0])) # north -> east and east -> south
+    # elif current_type == 'curl_free':
+    enu_vec = -enu_t # outward from SECS poles
+    # elif current_type in ['potential', 'scalar']:
+    #     enu_vec = 1
+    # else:
+    #     raise Exception('type must be "divergence_free", "curl_free", "potential", or "sclar"')
+
+    # get the scalar part of Amm's divergence-free SECS:    
+    costheta = dpclip(np.einsum('ij,kj->ik', ecef_r_secs, ecef_r_data))
+    theta  = np.arccos(costheta)
+
+    psi_cf = np.exp(eta * (costheta - 1) )
+    if current_type == 'curl_free':
+        # coeff = constant /np.tan(theta/2)/ RI
+
+        # Dot product of ecef vectors
+        # ecef_dot = np.sum(ecef_r_secs[np.newaxis, :, :] * ecef_r_data[:, np.newaxis, :], axis=2)
+        # dtheta = np.arccos(ecef_dot)
+        vcfmag = eta * np.sin(theta) * psi_cf
+
+        coeff = constant * vcfmag / RI
+
+        # # apply modifications to handle singularities:
+        # theta0 = singularity_limit / RI
+        # if theta0 > 0:
+        #     alpha = 1 / np.tan(theta0/2)**2
+        #     coeff[theta < theta0] = constant * alpha * np.tan(theta[theta < theta0]/2) / RI
+
+        # G matrices
+        Ge = coeff * enu_vec[:, :, 0].T
+        Gn = coeff * enu_vec[:, :, 1].T
+    
+        return Ge.T, Gn.T
+    else: # current_type is 'potential' or 'scalar'
+        if current_type == 'potential':
+            return constant * psi_cf.T 
+        else:
+            assert 2<0,f"The current type you've selected ('{current_type}') is invalid"
+        # elif current_type == 'scalar':
+        #     return    constant      / np.tan(theta/2).T
+    
+
 def get_SECS_B_G_matrices(lat, lon, r, lat_secs, lon_secs,
                           current_type = 'divergence_free', constant = 1./(4*np.pi), 
                           RI = RE + 110 * 1e3,
