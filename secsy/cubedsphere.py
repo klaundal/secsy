@@ -127,6 +127,10 @@ class CSprojection(object):
             xi [theta > np.pi/4] = np.nan
             eta[theta > np.pi/4] = np.nan
 
+        # Points in the other hemisphere should be nan
+        xi[lat < 0] = np.nan
+        eta[lat < 0] = np.nan
+
         return xi.reshape(shape), eta.reshape(shape)
 
 
