@@ -83,7 +83,7 @@ class CSprojection(object):
         self.R_local2geo = self.R_geo2local.T  # inverse
 
 
-    def geo2cube(self, lon, lat, set_points_off_cube_to_nan = True):
+    def geo2cube(self, lon, lat, set_points_off_cube_to_nan = False):
         """ convert from geocentric coordinates to cube coords (xi, eta) 
         
         Input parameters must have same shape. Output will have same shape.
@@ -96,8 +96,8 @@ class CSprojection(object):
         lat: array:
             geocentric latitude(s) [deg] to convert to cube coords.
         set_points_off_cube_to_nan : bool (optional)
-            set to True (default) if points that are not on the cube should be
-            set to nan. 
+            set to True if points that are not on the cube should be
+            set to nan (default is False). 
 
         Returns
         -------
