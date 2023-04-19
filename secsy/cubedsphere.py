@@ -987,7 +987,7 @@ class CSgrid(object):
     
     def to_dictionary(self):
         """ Creates a dictionary with key properties of the grid object that can be used to receate it.
-        The grid can be recreated from dictionary using the from dictionary function.
+        The grid can be recreated from dictionary using the from_dictionary function.
 
         Returns
         -------
