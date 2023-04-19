@@ -986,13 +986,13 @@ class CSgrid(object):
 
     
     def to_dictionary(self):
-        proj= {'position': self.projection.position.tolist(), 'orientation': self.projection.orientation.tolist()}
-        edges= self.edges
+        proj = {'position': self.projection.position.tolist(), 'orientation': self.projection.orientation.tolist()}
+        edges = self.edges
         if edges is not None:
-            edges= tuple([e.tolist() for e in edges])
-        grid= {'projection': proj, 'L': self.L, 'W': self.W, 'Lres': self.Lres, 
+            edges= tuple([_.tolist() for _ in edges])
+        grid_dict = {'projection': proj, 'L': self.L, 'W': self.W, 'Lres': self.Lres, 
                'Wres':self.Wres, 'wshift': self.wshift, 'R': self.R, 'edges':edges}
-        return grid
+        return grid_dict
 
 def from_dictionary(dictionary):
     dictionary= dictionary.copy()
