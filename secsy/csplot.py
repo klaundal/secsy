@@ -266,7 +266,17 @@ class CSplot(object):
     def plot(self,lon,lat,**kwargs):
         x,y = self.grid.projection.geo2cube(lon,lat)
         return self.ax.plot(x,y,**kwargs)
-     
+
+    def contour(self,*args,**kwargs):
+        
+        if len(args)==1: # Only C provided
+            self.ax.contour(self.grid.xi,self.grid.eta,args[0],**kwargs)
+        elif len(args)==3:
+            X,Y = self.grid.projection.geo2cube(args[0],args[1])
+            self.ax.contour(X,Y,args[2],**kwargs)
+        else:
+            raise TypeError            
+
     def contourf(self,*args,**kwargs):
         
         if len(args)==1: # Only C provided
