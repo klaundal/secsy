@@ -25,8 +25,8 @@ class CSplot(object):
         # Set gridtype
         if 'gridtype' in kwargs.keys():
             gridtype = kwargs.pop('gridtype')
-            if gridtype not in ['geo','dipole','apex','cs']:
-                print("gridtype must be 'geo','dipole','apex' or 'cs' to be added.")
+            if gridtype not in ['geo','dipole','apex','km','cs']:
+                print("gridtype must be 'geo','dipole','apex', 'km' or 'cs' to be added.")
                 gridtype=None
         else:
             gridtype = None
@@ -71,14 +71,18 @@ class CSplot(object):
                 else:
                     lon_levels = np.r_[0:360:30]
             
+            if 'km_levels' in kwargs.keys():
+                km_levels = kwargs.pop('km_levels')
+            else:
+                km_levels = np.round(self.grid.R*(self.grid.xi_max+self.grid.eta_max)//5,-2)
             
             # Add the selected grid
             if gridtype =='cs':
-                self.ax.set_xlabel('xi')
-                self.ax.set_ylabel('eta')
+                self.ax.set_xlabel('$\\xi$')
+                self.ax.set_ylabel('$\\eta$')
                 self.ax.grid(**kwargs)
             elif gridtype == 'km':
-                self.add_km(res)
+                self.add_km(km_levels,**kwargs)
             else:
                 self.add_grid(lat_levels=lat_levels,lon_levels=lon_levels,gridtype=gridtype,lt=lt,**kwargs)
             
@@ -115,7 +119,7 @@ class CSplot(object):
             
         self.ax.plot(xi,eta,**kwargs)
         
-        
+        count_min = self.grid.R*(self.grid.xi_max+self.grid.eta_max)//300
         
         # Add ticks
         iii = self.grid.ingrid(*np.meshgrid(lon,lat_levels)) # gridpoints in csgrid
@@ -124,7 +128,7 @@ class CSplot(object):
         lon_res=np.mean(np.diff(lon_levels))
         lon_pos = lon_mean//lon_res*lon_res + lon_res/2
         
-        [self.text(x,y,str(int(y)), horizontalalignment='center',verticalalignment='center') for x,y in zip(lon_pos[lon_count>10],lat_levels[lon_count>10])]
+        [self.text(x,y,str(int(y)), horizontalalignment='center',verticalalignment='center') for x,y in zip(lon_pos[lon_count>count_min],lat_levels[lon_count>count_min])]
         
         
         iii = self.grid.ingrid(*np.meshgrid(lon_levels,lat)) # gridpoints in csgrid
@@ -132,13 +136,92 @@ class CSplot(object):
         lat_count = np.sum(iii,axis=0)
         lat_res=np.mean(np.diff(lat_levels))
         lat_pos = lat_mean//lat_res*lat_res + lat_res/2
-        [self.text(x,y,str(int(x)), horizontalalignment='center',verticalalignment='center') for x,y in zip(lon_levels[lat_count>10], lat_pos[lat_count>10])]
+        [self.text(x,y,str(int(x)), horizontalalignment='center',verticalalignment='center') for x,y in zip(lon_levels[lat_count>count_min], lat_pos[lat_count>count_min])]
         
         pass
     
-    def add_km(self,resolution):
+    def add_km(self,resolution,**kwargs):
         
-        pass
+        
+        csres=0.005
+        
+        # xi gridlines
+        eta = np.arange(self.grid.eta_min*2,self.grid.eta_max*2,csres)
+        # xi(eta) for xi>0
+        xi = np.arange(0,self.grid.xi_max*1.1,csres)
+        
+        diff = self.grid.projection.differentials(*np.meshgrid(xi,eta),csres,0,R=self.grid.R)[0]
+        diff[:,0]=0
+        
+        xi_pos = []
+        for i in range(len(eta)): xi_pos.append(np.interp(np.arange(0,self.grid.L/2,resolution),np.cumsum(diff[i,:]),xi))
+        xi_pos = np.array(xi_pos)  
+        
+        # xi(eta) for xi<0
+        xi = np.arange(0,self.grid.xi_min*1.1,-csres)
+
+        diff = self.grid.projection.differentials(*np.meshgrid(xi,eta),-csres,0,R=self.grid.R)[0]
+        diff[:,0]=0
+        
+        xi_neg = []
+        for i in range(len(eta)): xi_neg.append(np.interp(np.arange(-resolution,-self.grid.L/2,-resolution)[::-1],np.cumsum(diff[i,:])[::-1],xi[::-1]))
+        xi_neg = np.array(xi_neg)
+        
+        self.ax.plot(np.hstack((xi_neg,xi_pos)),eta,**kwargs)
+        
+        # tickmarks
+        idx = (np.abs(eta - self.grid.eta_min)).argmin()
+        xi_tick = np.hstack((xi_neg,xi_pos))[idx,:]
+        eta_tick = self.grid.eta_min*1.05
+        km_tick = np.concatenate((np.arange(-resolution,-self.grid.L/2,-resolution)[::-1],np.arange(0,self.grid.L/2,resolution)))
+        
+        ind = (xi_tick>=self.grid.xi_min)&(xi_tick<=self.grid.xi_max)
+        xi_tick = xi_tick[ind]
+        km_tick = km_tick[ind]
+        [self.ax.text(xi_tick[i],eta_tick,str(int(km_tick[i])),horizontalalignment='center',verticalalignment='top') for i in range(len(xi_tick))]
+        
+        
+        
+        ## eta gridlines
+        
+        xi = np.arange(self.grid.eta_min*2,self.grid.eta_max*2,csres)
+        # eta(xi) for eta>0
+        eta = np.arange(0,self.grid.eta_max*1.1,csres)
+        
+        diff = self.grid.projection.differentials(*np.meshgrid(xi,eta),0,csres,R=self.grid.R)[1].T
+        diff[:,0]=0
+        
+        eta_pos = []
+        for i in range(len(xi)): eta_pos.append(np.interp(np.arange(0,self.grid.W/2,resolution),np.cumsum(diff[i,:]),eta))
+        eta_pos = np.array(eta_pos)  
+        
+        # xi(eta) for xi<0
+        eta = np.arange(0,self.grid.eta_min*1.1,-csres)
+
+        diff = self.grid.projection.differentials(*np.meshgrid(xi,eta),0,-csres,R=self.grid.R)[1].T
+        diff[:,0]=0
+        
+        eta_neg = []
+        for i in range(len(xi)): eta_neg.append(np.interp(np.arange(-resolution,-self.grid.W/2,-resolution)[::-1],np.cumsum(diff[i,:])[::-1],eta[::-1]))
+        eta_neg = np.array(eta_neg)
+        
+        
+        self.ax.plot(xi,np.hstack((eta_neg,eta_pos)),**kwargs)
+        
+                
+        # tickmarks
+        xi_tick = self.grid.xi_min*1.05
+        idx = (np.abs(xi - self.grid.xi_min)).argmin()
+        eta_tick = np.hstack((eta_neg,eta_pos))[idx,:]
+        km_tick = np.concatenate((np.arange(-resolution,-self.grid.W/2,-resolution)[::-1],np.arange(0,self.grid.W/2,resolution)))
+        
+        ind = (eta_tick>=self.grid.eta_min)&(eta_tick<=self.grid.eta_max)
+        eta_tick = eta_tick[ind]
+        km_tick = km_tick[ind]
+        [self.ax.text(xi_tick,eta_tick[i],str(int(km_tick[i])),horizontalalignment='right',verticalalignment='center') for i in range(len(eta_tick))]
+        
+   
+        
     
     def text(self, lon, lat, text, ignore_limits=False, **kwargs):
         """
@@ -187,7 +270,7 @@ class CSplot(object):
     def contourf(self,*args,**kwargs):
         
         if len(args)==1: # Only C provided
-            self.ax.contourf(self.grid.xi_mesh,self.grid.eta_mesh,args[0],**kwargs)
+            self.ax.contourf(self.grid.xi,self.grid.eta,args[0],**kwargs)
         elif len(args)==3:
             X,Y = self.grid.projection.geo2cube(args[0],args[1])
             self.ax.contourf(X,Y,args[2],**kwargs)
