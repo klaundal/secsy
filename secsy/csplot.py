@@ -236,32 +236,6 @@ class CSplot(object):
         else:
             print('text outside plot limit - set "ignore_limits = True" to override')
     
-     
-    def plotgrid(self,dd):
-        pass
-
-    def plotgrid2(self, labels=False, **kwargs):
-        """ plot lt, lat-grid on self.ax
-        parameters
-        ----------
-        labels: bool
-            set to True to include lat/lt labels
-        **kwarsgs: dictionary
-            passed to matplotlib's plot function (for linestyle etc.)
-        """
-        returns= []
-        for lt in [0, 6, 12, 18]:
-            returns.append(self.plot([self.minlat, 90], [lt, lt], **kwargs))
-
-        lts = np.linspace(0, 24, 100)
-        for lat in np.r_[90: self.minlat -1e-12 :-10]:
-            returns.append(self.plot(np.full(100, lat), lts, **kwargs))
-
-        # add LAT and LT labels to axis
-        if labels:
-            returns.append(self.writeLATlabels())
-            returns.append(self.writeLTlabels())
-        return tuple(returns)
         
     def plot(self,lon,lat,**kwargs):
         x,y = self.grid.projection.geo2cube(lon,lat)
