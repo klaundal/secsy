@@ -491,6 +491,7 @@ class CSgrid(object):
         self.W = W
         self.Lres = Lres
         self.Wres = Wres
+        self.edges= edges
 
         # make xi and eta arrays for the grid cell boundaries:
         if edges == None:
@@ -982,4 +983,20 @@ class CSgrid(object):
         # combine the matrices so we get divergence of east/north
         D = L.dot(R.dot(RR) )
         return D if return_sparse else np.array(D.todense())
+
+    
+    def to_dictionary(self):
+        proj= {'position': self.projection.position.tolist(), 'orientation': self.projection.orientation.tolist()}
+        edges= self.edges
+        if edges is not None:
+            edges= tuple([e.tolist() for e in edges])
+        grid= {'projection': proj, 'L': self.L, 'W': self.W, 'Lres': self.Lres, 
+               'Wres':self.Wres, 'wshift': self.wshift, 'R': self.R, 'edges':edges}
+        return grid
+
+def from_dictionary(dictionary):
+    dictionary= dictionary.copy()
+    if dictionary['edges'] is not None:
+        dictionary['edges']= tuple([np.array(e) for e in dictionary['edges']])
+    return CSgrid(CSprojection(**dictionary.pop('projection')), **dictionary)
 
