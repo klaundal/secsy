@@ -12,6 +12,62 @@ import matplotlib.pyplot as plt
 
 class CSplot(object):
     def __init__(self,ax,csgrid, **kwargs):
+        '''
+        A class creating a cubed sphere axis object to plot data with (lon,lat) corrdinates on a cubed sphere projection.
+        
+        
+        Example:
+        --------
+        import matplotlib.pyplot as plt
+        fig,ax = plt.subplots()
+        csax = CSplot(ax,grid)
+        csax.MEMBERFUNCTION()
+        plt.show()
+        
+        where memberfunctions include:
+        plot(lon,lat,**kwargs)            - works like plt.plot
+        text(lon,lat,text, **kwargs)      - works like plt.text
+        scatter(lon,lat,**kwargs)         - works like plt.scatter
+        contour(lon,lat,c,**kwargs)                - works like plt.contour
+        contourf(lon,lat,c,**kwargs)               - works like plt.contourf
+
+        Parameters
+        ----------
+        ax : matplotlib.AxesSubplot
+            A standard matplotlib AxesSubplot object.
+        csgrid : secsy.cubedsphere.CSgrid
+            A cubed sphere grid object.
+        **kwargs : dict, optional
+            Keywords to control grid lines.
+            In addition to Line2D properties, the following can be specified:
+            gridtype : str or None
+                Determines which grid lines that are added to the csplot
+                'geo' adds a geographic lon,lat grid
+                'dipole' adds a magnetic dipole lon,lat grid
+                'apex' adds a magnetic apex lon lat grid
+                'km' adds gridlines with equal physical distance in km
+                'cs' adds a cubed sphere xi,eta grid
+                Default is None (no grid)
+            lt : bool
+                If lt is True, lon is replaced with local time.
+                Default is False. 
+            lat_levels : array_like
+                Where to plot latitudinal grid parallels in spherical grids. If not provided, default values are used.
+            lat_res : int
+                Resolution of latitudinal grid parallels in spherical grids. Ignored if lat_levels are set.
+            lon_levels : array_like
+                Where to plot longitudinal grid meridians in spherical grids. If not provided, default values are used.
+            lon_res : int 
+                Resolution of longitudinal grid meridians in spherical grids. Ignored if lon_levels are set.
+            km_res : int
+                Resolution of 'km' grid. If not provided, default values are used.
+            Keywords passed to the plot function to control grid lines.
+
+        Returns
+        -------
+        None.
+
+        '''
         
         # Add ax and grid to csax
         self.ax = ax
@@ -22,11 +78,11 @@ class CSplot(object):
         self.ax.set_xlim((self.grid.xi_min,self.grid.xi_max))
         self.ax.set_ylim((self.grid.eta_min,self.grid.eta_max))
         
-        # Set gridtype
+        # Select gridtype
         if 'gridtype' in kwargs.keys():
             gridtype = kwargs.pop('gridtype')
-            if gridtype not in ['geo','dipole','apex','km','cs']:
-                print("gridtype must be 'geo','dipole','apex', 'km' or 'cs' to be added.")
+            if gridtype not in ['geo','km','cs']:
+                print("gridtype must be 'geo', 'km' or 'cs' to be added. 'dipole' and 'apex' will soon be available." )
                 gridtype=None
         else:
             gridtype = None
@@ -34,29 +90,32 @@ class CSplot(object):
         # Longitude or local time
         if 'lt' in kwargs.keys():
             lt = bool(kwargs.pop('lt'))
+            print("'lt' not implemented yet.")
         else:
             lt = False
         
         
         # Add grid
         if gridtype is not None:
-            # Set default grid properties
+            # Set default grid linewidth
             if 'linewidth' not in kwargs.keys():
                 kwargs['linewidth'] = .5
     
+            # Set default grid color
             if 'color' not in kwargs.keys():
                 kwargs['color'] = 'lightgrey'
             
             
-            # Set grid resolution
+            # Set latitudinal grid resolution
             if 'lat_levels' in kwargs.keys():
                 lat_levels = kwargs.pop('lat_levels')
             elif 'lat_res' in kwargs.keys():
                 lat_res = kwargs.pop('lat_res')
                 lat_levels = np.arange(-90,90,lat_res)[1:]
-            else:
-                lat_levels = np.arange(-90,90,10)[1:]
+            else: # Default resolution is 10 degrees
+                lat_levels = np.arange(-90,90,10)[1:] 
                 
+            # Set longitidinal grid resolution
             if 'lon_levels' in kwargs.keys():
                 lon_levels = kwargs.pop('lon_levels')
             elif 'lon_res' in kwargs.keys():
@@ -65,15 +124,16 @@ class CSplot(object):
                     lon_levels = np.arange(0,24,lon_res)
                 else:
                     lon_levels = np.arange(0,360,lon_res)
-            else:
+            else: # Default res is 30 degrees / 2 hours
                 if lt:
                     lon_levels = np.r_[0:240:2]
                 else:
                     lon_levels = np.r_[0:360:30]
             
+            # Set grid resolution in 'km' grid
             if 'km_levels' in kwargs.keys():
                 km_levels = kwargs.pop('km_levels')
-            else:
+            else: # Default res depends on cs grid size
                 km_levels = np.round(self.grid.R*(self.grid.xi_max+self.grid.eta_max)//5,-2)
             
             # Add the selected grid
@@ -82,9 +142,9 @@ class CSplot(object):
                 self.ax.set_ylabel('$\\eta$')
                 self.ax.grid(**kwargs)
             elif gridtype == 'km':
-                self.add_km(km_levels,**kwargs)
+                self.add_km_grid(km_levels,**kwargs)
             else:
-                self.add_grid(lat_levels=lat_levels,lon_levels=lon_levels,gridtype=gridtype,lt=lt,**kwargs)
+                self.add_spherical_grid(lat_levels=lat_levels,lon_levels=lon_levels,gridtype=gridtype,lt=lt,**kwargs)
             
 
         
@@ -96,7 +156,7 @@ class CSplot(object):
             self.ax.set_xticks([])
             self.ax.set_yticks([])
      
-    def add_grid(self,lat_levels=np.r_[-80:90:10],lon_levels=np.r_[0:360:30],gridtype='geo',lt=False,**kwargs):
+    def add_spherical_grid(self,lat_levels=np.r_[-80:90:10],lon_levels=np.r_[0:360:30],gridtype='geo',lt=False,**kwargs):
         
         # Add latitudinal parallels
         lon=np.linspace(0,360,361) % 360
@@ -140,7 +200,7 @@ class CSplot(object):
         
         pass
     
-    def add_km(self,resolution,**kwargs):
+    def add_km_grid(self,resolution,**kwargs):
         
         
         csres=0.005
