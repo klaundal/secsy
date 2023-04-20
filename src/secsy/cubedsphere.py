@@ -22,12 +22,12 @@
 """
 
 import numpy as np
-from ..secsy import spherical, diffutils
+from . import spherical, diffutils
 from scipy import sparse
 import os
 d2r = np.pi / 180
 
-datapath = os.path.dirname(os.path.abspath(__file__)) + '/../data/'
+datapath = os.path.dirname(os.path.abspath(__file__)) + '/data/'
 
 
 class CSprojection(object):
