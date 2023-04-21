@@ -991,7 +991,7 @@ class CSgrid(object):
 
         Returns
         -------
-        grid : dictionary
+        grid_dict : dictionary
             dictionary with key grid properties.
         """
         
