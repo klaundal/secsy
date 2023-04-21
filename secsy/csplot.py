@@ -8,7 +8,6 @@ Created on Mon Apr 17 11:57:56 2023
 
 import numpy as np
 
-import matplotlib.pyplot as plt
 
 class CSplot(object):
     def __init__(self,ax,csgrid, **kwargs):
@@ -61,7 +60,6 @@ class CSplot(object):
                 Resolution of longitudinal grid meridians in spherical grids. Ignored if lon_levels are set.
             km_res : int
                 Resolution of 'km' grid. If not provided, default values are used.
-            Keywords passed to the plot function to control grid lines.
 
         Returns
         -------
@@ -157,51 +155,94 @@ class CSplot(object):
             self.ax.set_yticks([])
      
     def add_spherical_grid(self,lat_levels=np.r_[-80:90:10],lon_levels=np.r_[0:360:30],gridtype='geo',lt=False,**kwargs):
+        '''
+        Adds a spherical lon/lat grid to the axis
+
+        Parameters
+        ----------
+        lat_levels : array_like, optional
+            Array with location of latitudinal parallels. The default is np.r_[-80:90:10].
+        lon_levels : array_like, optional
+            Array with location of longitudinal meridians. The default is np.r_[0:360:30].
+        gridtype : str, optional
+            Which coordinate system to add. The default is 'geo'.
+        lt : bool, optional
+            If lt is True, lon is replaced with local time. The default is False.
+        **kwargs : dict
+            Line2D properties.
+
+        Returns
+        -------
+        None.
+
+        '''
         
-        # Add latitudinal parallels
-        lon=np.linspace(0,360,361) % 360
-            
+        ## Latitudinal parallels
+    
+        lon=np.linspace(0,360,361) % 360 # Longitidunal locations
+        
+        # Convert to cs coordinates
         if gridtype=='geo':
             xi,eta = self.grid.projection.geo2cube(*np.meshgrid(lon,lat_levels))
-            
+        
+        # Plot the grid lines
         self.ax.plot(xi.T,eta.T,**kwargs)
         
-        # Add longitudinal meridians
-        lat=np.linspace(-90,90,181)
         
-        if lt:
-            # Convert lon_levels to longitude
+        ## Longitudinal meridians
+        lat=np.linspace(-90,90,181)# Latitudinal locations
+        
+        
+        if lt: # Convert lon_levels from lt to longitude
             pass
         
+        # Convert to cs coordinates
+        if gridtype=='geo':
+            xi,eta = self.grid.projection.geo2cube(*np.meshgrid(lon_levels,lat))
 
-        
-        xi,eta = self.grid.projection.geo2cube(*np.meshgrid(lon_levels,lat))
-            
+        # Plot the grid            
         self.ax.plot(xi,eta,**kwargs)
         
+        # Minimum "length" of grid line from tick t be plotted
         count_min = self.grid.R*(self.grid.xi_max+self.grid.eta_max)//300
         
-        # Add ticks
-        iii = self.grid.ingrid(*np.meshgrid(lon,lat_levels)) # gridpoints in csgrid
-        lon_mean = anglemean(np.where(~iii,np.nan,lon[None,:]),axis=1)
-        lon_count = np.sum(iii,axis=1)
-        lon_res=np.mean(np.diff(lon_levels))
-        lon_pos = lon_mean//lon_res*lon_res + lon_res/2
+        # Add latitudinal ticks
+        iii = self.grid.ingrid(*np.meshgrid(lon,lat_levels)) # points in csgrid
+        lon_mean = anglemean(np.where(~iii,np.nan,lon[None,:]),axis=1) # mean of lon grid lines
+        lon_count = np.sum(iii,axis=1) # "length" of grid lines
+        lon_res=np.mean(np.diff(lon_levels)) # Distance between meridians
+        lon_pos = lon_mean//lon_res*lon_res + lon_res/2 # Move tick location from mean to between meridians
         
+        # Add the latitudinal ticks
         [self.text(x,y,str(int(y)), horizontalalignment='center',verticalalignment='center') for x,y in zip(lon_pos[lon_count>count_min],lat_levels[lon_count>count_min])]
         
         
-        iii = self.grid.ingrid(*np.meshgrid(lon_levels,lat)) # gridpoints in csgrid
-        lat_mean = np.nanmean(np.where(~iii,np.nan,lat[:,None]),axis=0)
-        lat_count = np.sum(iii,axis=0)
-        lat_res=np.mean(np.diff(lat_levels))
-        lat_pos = lat_mean//lat_res*lat_res + lat_res/2
+        iii = self.grid.ingrid(*np.meshgrid(lon_levels,lat)) # points in csgrid
+        lat_mean = np.nanmean(np.where(~iii,np.nan,lat[:,None]),axis=0) # mean of lat grid lines
+        lat_count = np.sum(iii,axis=0) # "length" of grid lines
+        lat_res=np.mean(np.diff(lat_levels)) # Distance between parallels
+        lat_pos = lat_mean//lat_res*lat_res + lat_res/2 # Move ticks from mean to between parallels
+        
+        # Add the longitudinal ticks
         [self.text(x,y,str(int(x)), horizontalalignment='center',verticalalignment='center') for x,y in zip(lon_levels[lat_count>count_min], lat_pos[lat_count>count_min])]
         
-        pass
     
     def add_km_grid(self,resolution,**kwargs):
-        
+        '''
+        Adds grid lines with equal physical distance on the grid
+
+        Parameters
+        ----------
+        resolution : float
+            Distance between the grid lines in km.
+        **kwargs : 2D line properties.
+            Passed to matplotlib.pyplot.plot
+
+        Returns
+        -------
+        None.
+
+        '''        
         
         csres=0.005
         
@@ -239,7 +280,6 @@ class CSplot(object):
         xi_tick = xi_tick[ind]
         km_tick = km_tick[ind]
         [self.ax.text(xi_tick[i],eta_tick,str(int(km_tick[i])),horizontalalignment='center',verticalalignment='top') for i in range(len(xi_tick))]
-        
         
         
         ## eta gridlines
@@ -284,10 +324,28 @@ class CSplot(object):
         
     
     def text(self, lon, lat, text, ignore_limits=False, **kwargs):
-        """
-        Wrapper for matplotlib's text function. Accepts lat, lt instead of x and y
-        keywords passed to this function is passed on to matplotlib's text
-        """
+        '''
+        Adds text to the cubed sphere projection
+
+        Parameters
+        ----------
+        lon : float
+            The geographic longitude to place the text.
+        lat : float
+            The geographic latitude to place the text.
+        text : str
+            The text.
+        ignore_limits : bool, optional
+            If True, text outside the plot limits are ignored. The default is False.
+        **kwargs : text properties
+            Passed to matplotlib.pyplot.text
+
+        Returns
+        -------
+        Text
+            The created Text instance.
+
+        '''
 
         xi,eta = self.grid.projection.geo2cube(lon,lat)
 
@@ -298,41 +356,144 @@ class CSplot(object):
     
         
     def plot(self,lon,lat,**kwargs):
+        '''
+        Plots data points on the cubed sphere projection
+
+        Parameters
+        ----------
+        lon : array-like or scalar
+            The longitudinal coordinates of the data points.
+        lat : array-like or scalar
+            The latitudinal coordinates of the data points.
+        **kwargs : 2D line properties
+            Passed to matplotlib.pyplot.plot.
+
+        Returns
+        -------
+        list of Line2D
+            A list of lines representing the plotted data.
+
+        '''
         x,y = self.grid.projection.geo2cube(lon,lat)
         return self.ax.plot(x,y,**kwargs)
 
     def contour(self,*args,**kwargs):
+        '''
+        Plot contour lines on the cubes sphere projection.
+        Call signature: contour([X, Y,] Z, **kwargs)
+
+        Parameters
+        ----------
+        *args : Arrays
+            X, Y : array-like, optional
+                The lon,lat coordinates of the values in Z.
+                X and Y must both be 2D with the same shape as Z
+            Z : (M, N) array-like
+                The height values over which the contour is drawn.
+                Must be of self.grid.size if X,Y are not provided
+
+        **kwargs : dict
+            Passed to matplotlib.pyplot.contour.
+
+        Returns
+        -------
+        QuadContourSet
+            A set of contour lines or filled regions.
+
+        '''
         
         if len(args)==1: # Only C provided
-            self.ax.contour(self.grid.xi,self.grid.eta,args[0],**kwargs)
+            return self.ax.contour(self.grid.xi,self.grid.eta,args[0],**kwargs)
         elif len(args)==3:
             X,Y = self.grid.projection.geo2cube(args[0],args[1])
-            self.ax.contour(X,Y,args[2],**kwargs)
+            return self.ax.contour(X,Y,args[2],**kwargs)
         else:
-            raise TypeError            
+            raise TypeError('Only accepts 1 or 3 arguments')         
 
     def contourf(self,*args,**kwargs):
+        '''
+        Plot filled contours on the cubes sphere projection.
+        Call signature: contourf([X, Y,] Z, **kwargs)
+
+        Parameters
+        ----------
+        *args : Arrays
+            X, Y : array-like, optional
+                The lon,lat coordinates of the values in Z.
+                X and Y must both be 2D with the same shape as Z
+            Z : (M, N) array-like
+                The height values over which the filled contour is drawn.
+                Must be of self.grid.size if X,Y are not provided
+
+        **kwargs : dict
+            Passed to matplotlib.pyplot.contourf.
+
+        Returns
+        -------
+        QuadContourSet
+            A set of contour lines or filled regions.
+
+        '''
         
         if len(args)==1: # Only C provided
-            self.ax.contourf(self.grid.xi,self.grid.eta,args[0],**kwargs)
+            return self.ax.contourf(self.grid.xi,self.grid.eta,args[0],**kwargs)
         elif len(args)==3:
             X,Y = self.grid.projection.geo2cube(args[0],args[1])
-            self.ax.contourf(X,Y,args[2],**kwargs)
+            return self.ax.contourf(X,Y,args[2],**kwargs)
         else:
-            raise TypeError    
+            raise TypeError('Only accepts 1 or 3 arguments')     
      
     def pcolormesh(self,*args,**kwargs):
+        '''
+        Create a pseudocolor plot with a non-regular rectangular grid.
+        Call signature: contourf([X, Y,] Z, **kwargs)
+        
+        Parameters
+        ----------
+        *args : Arrays
+            X, Y : array-like, optional
+                The lon,lat coordinates of the corners of the values in Z.
+                X and Y must both be 2D with shape (M+1,N+1)
+            Z : (M, N) array-like
+                The values to be plotted.
+                Must be of self.grid.size if X,Y are not provided
+        
+        **kwargs : dict
+            Passed to matplotlib.pyplot.pcolormesh.
+        
+        Returns
+        -------
+        matplotlib.collections.QuadMesh
+            A QuadMesh object.
+
+        '''
+        
         
         if len(args)==1: # Only C provided
-            self.ax.pcolormesh(self.grid.xi_mesh,self.grid.eta_mesh,args[0],**kwargs)
+            return self.ax.pcolormesh(self.grid.xi_mesh,self.grid.eta_mesh,args[0],**kwargs)
         elif len(args)==3:
             X,Y = self.grid.projection.geo2cube(args[0],args[1])
-            self.ax.pcolormesh(X,Y,args[2],**kwargs)
+            return self.ax.pcolormesh(X,Y,args[2],**kwargs)
         else:
-            raise TypeError
+            raise TypeError('Only accepts 1 or 3 arguments') 
         
         
     def add_coastlines(self, resolution='110m' ,**kwargs):
+        '''
+        Adds coastlines to the cubed sphere projection.
+
+        Parameters
+        ----------
+        resolution : str, optional
+            DESCRIPTION. The default is '110m'.
+        **kwargs : 2D line properties
+            Passed to matplotlib.pyplot.plot.
+
+        Returns
+        -------
+        None.
+
+        '''
          
         if 'color' not in kwargs.keys():
              kwargs['color'] = 'black'
@@ -344,5 +505,21 @@ class CSplot(object):
             
 
 def anglemean(X,axis=None):
+    '''
+    Function to calculate the circular mean. NaNs are ignored.
+
+    Parameters
+    ----------
+    X : array_like
+        Array containing numbers whose mean is desired. If a is not an array, a conversion is attempted.
+    axis : None or int or tuple of ints, optional
+        Axis or axes along which the means are computed. The default is to compute the mean of the flattened array.
+
+    Returns
+    -------
+    ndarray
+        A new array containing the mean values
+
+    '''
     return np.rad2deg(np.arctan2(np.nanmean(np.sin(np.deg2rad(X)),axis=axis),np.nanmean(np.cos(np.deg2rad(X)),axis=axis)))
     
