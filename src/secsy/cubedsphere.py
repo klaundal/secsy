@@ -1006,6 +1006,124 @@ class CSgrid(object):
 
         return grid_dict
 
+    def scalar_field_interpolation(self, lon, lat, scalar_field):
+        '''
+        Make the matrix that interpolate values of a 2D scalar field at the 
+        desired input (lon, lat)locations. At present, bilinear interpolation 
+        is performed, using only the nearest four values of the 2D scalar field 
+        for the interpolation. Interpolation is implemented by constructing a 
+        matrix D that act on the scalar field, producing the interpolated values 
+        at the desired locations: 
+            interp_values = D.dot(scalar_field.flatten())
+        
+        Parameters
+        ----------
+        lon: array
+            array of longitudes [degrees] - must have same shape as lat_
+        lat: array
+            array of latitudes [degrees] - must have same shape as lon_
+        scalar_field: array
+            2D array (or flattened) of the scalar field as defined on the CS grid 
+            (dimensions must match)
+    
+        Returns
+        -------
+        Interpolated values of the 2D scalar field at the desired input (lon, lat)
+        locations. 
+        '''
+    
+        #Remove points outside grid
+        inside = self.ingrid(lon, lat)
+        lon_ = lon[inside] 
+        lat_ = lat[inside]
+    
+        #Get i,j index of each evaluation location, as a float
+        binnumber = self.bin_index(lon_, lat_)
+        i = binnumber[0].flatten()
+        j = binnumber[1].flatten()
+        xi_obs, eta_obs = self.projection.geo2cube(lon_.flatten(), lat_.flatten())
+        xi_grid = self.xi[i,j]
+        eta_grid = self.eta[i,j]
+        i_frac = (eta_obs-eta_grid)/self.deta
+        j_frac = (xi_obs-xi_grid)/self.dxi
+        i = i + i_frac
+        j = j + j_frac
+    
+        # Dimensions
+        N = lat_.size
+        I = self.shape[0]
+        J = self.shape[1]
+        IJ = I*J
+        
+        # Handle issue with machine precission causing points to end up in wrong place 
+        # using floor/ceil if specifying to evaluate very close to the grid loations 
+        # used in the interpolation
+        close_i = np.isclose(np.round(i), i, atol=1e-14)
+        i[close_i] = np.round(i)[close_i] + 1e-14
+        close_j = np.isclose(np.round(j), j, atol=1e-14)
+        j[close_j] = np.round(j)[close_j] + 1e-14
+        
+        # Handle input points falling within the perimiter cells, but outside the
+        # boundary determined by the center location in the perimiter cells. For those
+        # input points an extrapolation will be performed based on the bilinear
+        # interpolation scheme (just evaluated outside the "box" of the 4 points).
+        small_i = i <= 0 #due to ingrid it must also be > -0.5
+        i[small_i] = 0.00001
+        small_j = j <= 0 #due to ingrid it must also be > -0.5
+        j[small_j] = 0.00001
+        large_i = i >= self.shape[0]-1 #due to ingrid it must also be > -0.5
+        i[large_i] = self.shape[0]-1-0.00001
+        large_j = j >= self.shape[1]-1 #due to ingrid it must also be > -0.5
+        j[large_j] = self.shape[1]-1-0.00001
+        
+        #Indices of the four nodes surrounding each observation/evaluation location
+        ifloor = np.floor(i).astype(int)
+        iceil = np.ceil(i).astype(int)
+        jfloor = np.floor(j).astype(int)
+        jceil = np.ceil(j).astype(int)
+        
+        #CS coordinates and 1D indices of these points
+        xi1 = self.xi[ifloor, jfloor]
+        eta1 = self.eta[ifloor,jfloor] 
+        ij1 = np.ravel_multi_index((ifloor,jfloor), (self.NL, self.NW)).flatten()       
+        # xi2 = grid.xi[iceil,jfloor] # We dont need all 4 the xi-eta coords. since their
+                                      # coordinates will be the pairwise similar 
+        eta2 = self.eta[iceil,jfloor]                        
+        ij2 = np.ravel_multi_index((iceil,jfloor), (self.NL, self.NW)).flatten()       
+        # xi3 = grid.xi[iceil,jceil]
+        # eta3 = grid.eta[iceil,jceil]
+        ij3 = np.ravel_multi_index((iceil,jceil), (self.NL, self.NW)).flatten()       
+        xi4 = self.xi[ifloor,jceil]
+        # eta4 = grid.eta[ifloor,jceil]
+        ij4 = np.ravel_multi_index((ifloor,jceil), (self.NL, self.NW)).flatten()  
+        
+        #CS coordinates of observations/evaluation locations     
+        xi_obs, eta_obs = self.projection.geo2cube(lon_.flatten(), 
+                                                   lat_.flatten())
+        #Bilinear interpolation: https://en.wikipedia.org/wiki/Bilinear_interpolation
+        w1 = (xi4-xi_obs)*(eta2-eta_obs) / ((xi4-xi1)*(eta2-eta1)) #w11
+        w2 = (xi4-xi_obs)*(eta_obs-eta1) / ((xi4-xi1)*(eta2-eta1)) #w12
+        w3 = (xi_obs-xi1)*(eta_obs-eta1) / ((xi4-xi1)*(eta2-eta1)) #w22
+        w4 = (xi_obs-xi1)*(eta2-eta_obs) / ((xi4-xi1)*(eta2-eta1)) #w21
+        
+        D = np.zeros((N, IJ)) #The final interpolation matrix. D.dot(scalarfield) will 
+        # return the interpolated values of the scalar field at the specified locations
+        
+        # Setting the elements of D that produces the bilinear interpolation
+        D[np.arange(N),ij1] = w1
+        D[np.arange(N),ij2] = w2
+        D[np.arange(N),ij3] = w3
+        D[np.arange(N),ij4] = w4
+        
+        # Compute interpolated values
+        interpolated_ = D.dot(scalar_field.flatten())
+    
+        # Insert nans and ensure to return an array with same shape as input
+        interpolated = np.zeros(lat.size) + np.nan
+        interpolated[inside.flatten()] = interpolated_
+        
+        return interpolated.reshape(lat.shape)
+
 
 
 def from_dictionary(dictionary):
