@@ -51,7 +51,7 @@ authors:
       Department of Physics and Technology, University in
       Bergen, Norway
     orcid: 'https://orcid.org/0000-0002-5631-7344'   
-  - given-names: Ashley
+- given-names: Ashley
     family-names: Smith
     orcid: 'https://orcid.org/0000-0001-5198-9574'
     affiliation: 'University of Edinburgh, UK'
