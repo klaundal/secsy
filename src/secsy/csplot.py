@@ -376,6 +376,28 @@ class CSplot(object):
         '''
         x,y = self.grid.projection.geo2cube(lon,lat)
         return self.ax.plot(x,y,**kwargs)
+    
+    def scatter(self,lon,lat,**kwargs):
+        '''
+        Scatter plot of data points on the cubed sphere projection
+
+        Parameters
+        ----------
+        lon : array-like or scalar
+            The longitudinal coordinates of the data points.
+        lat : array-like or scalar
+            The latitudinal coordinates of the data points.
+        **kwargs : 2D line properties
+            Passed to matplotlib.pyplot.plot.
+
+        Returns
+        -------
+        list of Line2D
+            A list of lines representing the plotted data.
+
+        '''
+        x,y = self.grid.projection.geo2cube(lon,lat)
+        return self.ax.scatter(x,y,**kwargs)
 
     def contour(self,*args,**kwargs):
         '''
