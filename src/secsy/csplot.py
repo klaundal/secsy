@@ -376,6 +376,28 @@ class CSplot(object):
         '''
         x,y = self.grid.projection.geo2cube(lon,lat)
         return self.ax.plot(x,y,**kwargs)
+    
+    def scatter(self,lon,lat,**kwargs):
+        '''
+        Scatter plot of data points on the cubed sphere projection
+
+        Parameters
+        ----------
+        lon : array-like or scalar
+            The longitudinal coordinates of the data points.
+        lat : array-like or scalar
+            The latitudinal coordinates of the data points.
+        **kwargs : 2D line properties
+            Passed to matplotlib.pyplot.plot.
+
+        Returns
+        -------
+        list of Line2D
+            A list of lines representing the plotted data.
+
+        '''
+        x,y = self.grid.projection.geo2cube(lon,lat)
+        return self.ax.scatter(x,y,**kwargs)
 
     def contour(self,*args,**kwargs):
         '''
@@ -477,7 +499,34 @@ class CSplot(object):
         else:
             raise TypeError('Only accepts 1 or 3 arguments') 
         
+    def quiver(self, east, north, lon, lat, **kwargs):
+        ''' 
+        Quiver plot on the cubed sphere projection
         
+        parameters
+        ----------
+        east: array_like or scalar
+            Eastward vector components
+        north : array_like or scalar
+            Northward vector components
+        lon : array-like or scalar
+            The longitudinal coordinates of the data points.
+        lat : array-like or scalar
+            The latitudinal coordinates of the data points.
+        **kwargs : PolyCollection properties
+            Passed to matplotlib.pyplot.quiver
+
+        Returns
+        -------
+        matplotlib.quiver.Quiver
+            A PolyCollection quiver object.
+    
+        '''
+        
+        x, y, Ax, Ay = self.grid.projection.vector_cube_projection(east, north, lon, lat)
+        
+        return self.ax.quiver(x, y, Ax, Ay, **kwargs)
+
     def add_coastlines(self, resolution='110m' ,**kwargs):
         '''
         Adds coastlines to the cubed sphere projection.
