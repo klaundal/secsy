@@ -550,6 +550,8 @@ class CSplot(object):
     
         for cl in self.grid.projection.get_projected_coastlines(resolution = resolution):
             xi, eta = cl
+            if all(~np.isfinite(xi)): # skip if all points are nan
+                continue
             self.ax.plot(xi, eta, **kwargs)
             
 
