@@ -325,18 +325,18 @@ class CSprojection(object):
         -------
         xi: array-like  (if return_xi_eta is True)
             N element array of xi coordinates
-        eta: array-like
+        eta: array-like (if return_xi_eta is True)
             N element array of eta coordinates
-        Axi: array-like (if return_xi_eta is True)
+        Axi: array-like 
             N element array of vector components in xi direction
         Aeta: array-like
             N element array of vector components in eta direction
 
         """
 
-        east, north, lon, lat = tuple(map(lambda x: np.array(x).flatten(), 
-                                          [east, north, lon, lat]))
+        east, north, lon, lat = [np.array(x).flatten() for x in [east, north, lon, lat]]
         Ageo = np.vstack((east, north)).T
+
 
         # rotation from geo to local:
         local_lon, local_lat = self.geo2local(lon, lat)
@@ -373,6 +373,78 @@ class CSprojection(object):
             return Axi, Aeta
 
 
+
+    def vector_cube_to_geo(self, Axi, Aeta, xi, eta, return_lon_lat = True):
+        """ Calculate vector components projected on cube
+        
+        Perfor vector rotation from cube system to geographic
+        system, using self.local2geo_enu_rotation and equation
+        (14) of Ronchi et al. 
+
+        Parameters
+        ----------
+        Axi: array-like
+            Array of N xi components
+        Aeta: array-like
+            Array of N eta components
+        xi: array-like
+            Array of N xi coords that represent vector positions
+        eta: array-like
+            Array of N eta coords that represent vector positions
+        return_lon_lat: bool, optional
+            set to False to return only the vector components. If True
+            (default), returning the lon, lat coordinates corresponding 
+            to (xi, eta) as well. 
+
+        Returns
+        -------
+        lon: array-like (if return_lon_lat is True)
+            N element array of lon coordinates
+        lat: array-like (if return_lon_lat is True)
+            N element array of lat coordinates
+        east: array-like 
+            N element array of vector components in east direction
+        north: array-like
+            N element array of vector components in north direction
+
+        """
+
+        Axi, Aeta, xi, eta = [np.array(x).flatten() for x in [Axi, Aeta, xi, eta]]
+        Acube = np.vstack((Axi, Aeta)).T
+
+        # calculate the parameters used in transformation matrix:
+        X   = np.tan(-xi)
+        Y   = np.tan(-eta)
+        delta = 1 + X**2 + Y**2
+        C = np.sqrt(1 + X**2)
+        D = np.sqrt(1 + Y**2)
+        dd = np.sqrt(delta - 1)
+
+        # calculate transformation matrix elements:
+        R = np.empty((Axi.size, 2, 2))
+        R[:, 0, 0] = -D * X / dd 
+        R[:, 0, 1] =  D * Y / dd / np.sqrt(delta)
+        R[:, 1, 0] = -C * Y / dd
+        R[:, 1, 1] = -C * X / dd / np.sqrt(delta)
+
+        # rotate and return
+        Alocal = np.einsum('nji, nj->ni', R, Acube).T
+
+        # rearrange to east, north instead of south, east:
+        Alocal = np.vstack((Alocal[1], -Alocal[0])).T
+
+        # rotation from local to geo:
+        lon, lat = self.cube2geo(xi, eta)
+        local_lon, local_lat = self.geo2local(lon, lat)
+        R_enu_global2local = self.local2geo_enu_rotation(local_lon, local_lat)
+        Ageo = np.einsum('nij, nj->ni', R_enu_global2local, Alocal).T
+
+        # components in east, north directions:
+        east, north = Ageo[0], Ageo[1]
+        if return_lon_lat:
+            return lon, lat, east, north
+        else:
+            return east, north
 
 
     def get_projected_coastlines(self, resolution = '50m'):
