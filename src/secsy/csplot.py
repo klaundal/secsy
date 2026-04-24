@@ -10,7 +10,7 @@ import numpy as np
 
 
 class CSplot(object):
-    def __init__(self,ax,csgrid, **kwargs):
+    def __init__(self, ax, csgrid, view_from_below=False, **kwargs):
         '''
         A class creating a cubed sphere axis object to plot data with (lon,lat) corrdinates on a cubed sphere projection.
         
@@ -36,6 +36,10 @@ class CSplot(object):
             A standard matplotlib AxesSubplot object.
         csgrid : secsy.cubedsphere.CSgrid
             A cubed sphere grid object.
+        view_from_below: bool, optional
+            Set to True to view the map from below instead of above. This is 
+            sometimes useful for the Southern hemisphere (viewing from above
+            the northern hemisphere and true the Earth). Default is False
         **kwargs : dict, optional
             Keywords to control grid lines.
             In addition to Line2D properties, the following can be specified:
@@ -70,10 +74,14 @@ class CSplot(object):
         # Add ax and grid to csax
         self.ax = ax
         self.grid = csgrid
+        self.view_from_below = bool(view_from_below)
         self.ax.set_aspect('equal')
-        
-        # set ax limits
-        self.ax.set_xlim((self.grid.xi_min,self.grid.xi_max))
+
+        # set ax limits. 
+        if self.view_from_below:
+            self.ax.set_xlim((self.grid.xi_max,self.grid.xi_min))
+        else:
+            self.ax.set_xlim((self.grid.xi_min,self.grid.xi_max))
         self.ax.set_ylim((self.grid.eta_min,self.grid.eta_max))
         
         # Select gridtype
@@ -318,7 +326,8 @@ class CSplot(object):
         ind = (eta_tick>=self.grid.eta_min)&(eta_tick<=self.grid.eta_max)
         eta_tick = eta_tick[ind]
         km_tick = km_tick[ind]
-        [self.ax.text(xi_tick,eta_tick[i],str(int(km_tick[i])),horizontalalignment='right',verticalalignment='center') for i in range(len(eta_tick))]
+        eta_ha = 'left' if self.view_from_below else 'right'
+        [self.ax.text(xi_tick,eta_tick[i],str(int(km_tick[i])),horizontalalignment=eta_ha,verticalalignment='center') for i in range(len(eta_tick))]
         
    
         
@@ -524,7 +533,10 @@ class CSplot(object):
         '''
         
         x, y, Ax, Ay = self.grid.projection.vector_cube_projection(east, north, lon, lat)
-        
+
+        if self.view_from_below:
+            Ax = -Ax
+
         return self.ax.quiver(x, y, Ax, Ay, **kwargs)
 
     def add_coastlines(self, resolution='110m' ,**kwargs):
