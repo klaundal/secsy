@@ -226,8 +226,9 @@ class CSplot(object):
         
         
         iii = self.grid.ingrid(*np.meshgrid(lon_levels,lat)) # points in csgrid
-        lat_mean = np.nanmean(np.where(~iii,np.nan,lat[:,None]),axis=0) # mean of lat grid lines
         lat_count = np.sum(iii,axis=0) # "length" of grid lines
+        lat_values = np.where(~iii,np.nan,lat[:,None])
+        lat_mean = np.divide(np.nansum(lat_values,axis=0),lat_count,out=np.full_like(lon_levels,np.nan,dtype=float),where=lat_count > 0) # mean of lat grid lines
         lat_res=np.mean(np.diff(lat_levels)) # Distance between parallels
         lat_pos = lat_mean//lat_res*lat_res + lat_res/2 # Move ticks from mean to between parallels
         
@@ -565,7 +566,7 @@ class CSplot(object):
             self.ax.plot(xi, eta, **kwargs)
             
 
-def anglemean(X,axis=None):
+def anglemean(X, axis = None):
     '''
     Function to calculate the circular mean. NaNs are ignored.
 
@@ -582,5 +583,9 @@ def anglemean(X,axis=None):
         A new array containing the mean values
 
     '''
-    return np.rad2deg(np.arctan2(np.nanmean(np.sin(np.deg2rad(X)),axis=axis),np.nanmean(np.cos(np.deg2rad(X)),axis=axis)))
-    
+    X = np.asarray(X)
+    n = np.sum(~np.isnan(X), axis = axis)
+    sin_mean = np.divide(np.nansum(np.sin(np.deg2rad(X)), axis = axis), n, out = np.full_like(n, np.nan, dtype = float), where = n > 0)
+    cos_mean = np.divide(np.nansum(np.cos(np.deg2rad(X)), axis = axis), n, out = np.full_like(n, np.nan, dtype = float), where = n > 0)
+
+    return np.rad2deg(np.arctan2(sin_mean, cos_mean))
