@@ -20,7 +20,8 @@ You should have the following modules installed:
 
 - numpy
 - scipy
-- cartopy
+
+Cartopy is only needed if you want to regenerate the bundled Natural Earth map feature archives with ``src/secsy/helper_scripts/download_map_features.py``.
 
 Install
 =======
